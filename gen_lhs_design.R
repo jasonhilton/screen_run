@@ -1,0 +1,37 @@
+library(lhs)
+library(yaml)
+library(purrr)
+
+pars_config <- yaml::read_yaml("varied_pars.yaml")
+
+varied_pars <- names(pars)
+
+ranges <- rbind(map_dbl(pars_config,"min"),
+               map_dbl(pars_config,"max"))
+
+
+k <- length(varied_pars)
+
+N <- 400
+
+D <- lhs::maximinLHS(n=N, k=k, method="build", dup=4)
+
+# put within the right ranges (bit ugly)
+D <- t(t(D) * apply(ranges, 2, diff) + ranges[1,])
+
+Df <- data.frame(D)
+
+colnames(Df) <- varied_pars
+
+write.csv(Df, file="design.csv", row.names = F)
+
+
+
+
+
+
+
+
+
+
+

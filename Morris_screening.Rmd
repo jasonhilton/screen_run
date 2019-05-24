@@ -1,0 +1,376 @@
+---
+title: "Morris Screening"
+author: "Jason Hilton"
+date: "23 May 2019"
+output: html_document
+---
+
+
+Define a funky test function
+
+$$
+y= \beta_0 + \beta_1x_1 + \beta_2x_1x_2 + \beta_4x_1^4 + \beta_5\text{sin}(4x_2\pi)
+$$
+
+
+```{r}
+library(tibble)
+library(ggplot2)
+library(magrittr)
+library(DiceKriging)
+library(sensitivity)
+library(lhs)
+library(dplyr)
+
+set.seed(1434)
+test_function <- function(X, B){
+  cbind(1, X, X[,1] * X[,2], X[,1]*X[,1]*X[,1]*X[,1], 
+        sin(X[,2]*4*pi)) %*% as.matrix(B)
+}
+
+# define the true function so that it ignores any additional columns of X
+get_true_function <- function(true_beta){
+  true_func <- function(X){
+    test_function(X[,1:2], true_beta)
+  }
+  return(true_func)
+}
+
+# some arbitrary coefficients
+true_beta <- c(3,-0.5,0.25, 2, -1/10,1)
+true_function  <- get_true_function(true_beta)
+
+```
+
+
+What does this look like
+
+```{r}
+
+
+k <- 2
+N <- 100
+x <- seq(0,1, 0.05)
+
+# generate a simple grid like design for ease of plotting
+X <- as.matrix(expand.grid(replicate(k, x, simplify = F)))
+# Observations
+Y <- true_function(X)
+
+# stick this in a single dataset
+X_df <- as_tibble(X) %>% mutate(y=Y)
+X_df
+```
+
+
+
+```{r}
+
+ggplot(X_df,aes(x=Var1,y=y, colour=Var2)) + geom_line()+ scale_colour_viridis_c() +
+  facet_wrap(~Var2)
+ggplot(X_df,aes(x=Var2,y=y, colour=Var1)) + geom_line()+ scale_colour_viridis_c() +
+  facet_wrap(~Var1)
+ggplot(X_df, aes(x=Var1, y=Var2, fill=y)) + geom_tile() + scale_fill_viridis_c()
+
+```
+
+
+# Morris method
+
+This method picks somepoints in design space and generates very simple paths through parameter space starting from each point, varying one input at a time (One-At-a-Time (OAT)).
+The mean effect on the output of the variation in each direction and the variance of these (accross sample starting points) describe the linear and non-linear effects of each variable.
+
+Pretend we have 20 inputs (all but the first two are inactive), and we try r=10 starting points.
+This needs 20*10= 200 simulation runs points. It's a slightly odd looking design.
+
+```{r}
+# is the number of points
+D1 <- morris(factors=20, r=10, 
+       design=list(type="oat",
+                   levels=6,grid.jump=2))
+
+
+plot(D1$X[,1], D1$X[,2]) #
+
+```
+
+Generate the outputs from these points. All linear and not linear effects are zero, except the ones we want to keep.
+
+```{r}
+Y1 <- true_function(D1$X)
+tell(D1, Y1) # Modifies the morris object D1
+plot(D1) 
+
+print(D1)
+
+
+```
+
+
+What if we add noise? If we add too much we obviously won't be able to distinguish the signal.
+Let's add one fifth the real signal. This seems to be ok. There are some distributional arguments about the threshold level of sigma.
+
+```{r}
+
+noise_sig <- sd(Y1)/5
+
+D2 <- morris(factors=20, r=25, 
+       design=list(type="oat",
+                   levels=6,
+                   grid.jump=2))
+
+nobs <- dim(D2$X)[1]
+
+Y2 <- true_function(D2$X) + rnorm(nobs, 0, noise_sig)
+tell(D2, Y2) # Modifies the morris object D1
+plot(D2) 
+
+print(D2)
+
+
+```
+
+How does the kriging model do in the screened and non-screened spaces? 
+Fit the models using the DiceKriging packages.
+
+```{r}
+# build an lhs sample in the higher and lower dimensional spaces
+D1<-lhs::maximinLHS(n=400, k=2, method = "build", dup=4) 
+D2<-lhs::maximinLHS(n=400, k=10, method = "build", dup=4)
+D3<-lhs::maximinLHS(n=400, k=20, method = "build", dup=4)
+Y1 <- true_function(D1)
+nug_var <- sd(Y1)/5
+Y1 <- Y1 + rnorm(length(Y1), 0, sd(Y1)/5)
+Y2 <- true_function(D2) + rnorm(length(Y1), 0, sd(Y1)/5)
+Y3 <- true_function(D3) + rnorm(length(Y1), 0, sd(Y1)/5)
+
+D1_df <- as_tibble(D1)
+D2_df <- as_tibble(D2)
+D3_df <- as_tibble(D3)
+# constant mean
+mod1 <- km(Y~1, D1,Y1, covtype="gauss", nugget.estim = T)
+
+
+```
+
+```{r}
+
+mod1
+plot(mod1)
+```
+
+
+
+```{r}
+# predict using our grid from before
+X_df<- as_tibble(X[,1:2])
+mod1_pred <- predict(mod1, newdata=X_df, checkNames=F,
+                 type="SK") # SK for simple kriging - i.e. no linear trend in the mean function
+
+
+X_df %<>% mutate(Y=true_function(X),
+                 Y_hat=mod1_pred$mean,
+                 Y_low=mod1_pred$lower95,
+                 Y_hi=mod1_pred$upper95,
+                 Error=Y-Y_hat,
+                 Abs_error=abs(Error),
+                 PC_error= Abs_error/Y)
+
+ggplot(X_df, aes(x=Var1,y=Y_hat))  + 
+  facet_wrap(~Var2, scales="free") +
+   geom_ribbon(aes(ymin=Y_low,ymax=Y_hi), fill="grey") +
+  geom_line() + 
+  theme_minimal() +geom_point(aes(y=Y))
+
+
+
+ggplot(X_df, aes(x=Var2,y=Y_hat))  + 
+  facet_wrap(~Var1, scales="free") +
+   geom_ribbon(aes(ymin=Y_low,ymax=Y_hi), fill="grey") +
+  geom_line() + 
+  theme_minimal() +geom_point(aes(y=Y))
+
+
+X_df %>% summarise(mean(PC_error))
+
+```
+
+# 10 dimensions
+
+```{r}
+
+
+# constant mean
+mod2 <- km(Y~1, D2,Y2, covtype="gauss", nugget.estim = T)
+print(mod2)
+plot(mod2)
+X_df<- as_tibble(cbind(X[,1:2], matrix(0.5, dim(X)[1], 8)))
+mod2_pred <- predict(mod2, newdata=X_df, checkNames=F,
+                 type="SK") # SK for simple kriging - i.e. no linear trend in the mean function
+
+
+X_df %<>% mutate(Y=true_function(X),
+                 Y_hat=mod2_pred$mean,
+                 Y_low=mod2_pred$lower95,
+                 Y_hi=mod2_pred$upper95,
+                 Error=Y-Y_hat,
+                 Abs_error=abs(Error),
+                 PC_error= Abs_error/Y)
+
+ggplot(X_df, aes(x=Var1,y=Y_hat))  + 
+  facet_wrap(~Var2, scales="free") +
+   geom_ribbon(aes(ymin=Y_low,ymax=Y_hi), fill="grey") +
+  geom_line() + 
+  theme_minimal() +geom_point(aes(y=Y))
+
+
+
+ggplot(X_df, aes(x=Var2,y=Y_hat))  + 
+  facet_wrap(~Var1, scales="free") +
+   geom_ribbon(aes(ymin=Y_low,ymax=Y_hi), fill="grey") +
+  geom_line() + 
+  theme_minimal() +geom_point(aes(y=Y))
+
+
+X_df %>% summarise(mean(PC_error))
+
+```
+
+
+# 20 Dimensions
+
+```{r}
+
+mod3 <- km(Y~1, D3,Y3, covtype="gauss", nugget.estim = T)
+print(mod3)
+plot(mod3)
+
+
+X_df<- as_tibble(cbind(X[,1:2], matrix(0.5, dim(X)[1], 18)))
+mod3_pred <- predict(mod3, newdata=X_df, checkNames=F,
+                 type="SK") # SK for simple kriging - i.e. no linear trend in the mean function
+
+
+
+X_df %<>% mutate(Y=true_function(X),
+                 Y_hat=mod3_pred$mean,
+                 Y_low=mod3_pred$lower95,
+                 Y_hi=mod3_pred$upper95,
+                 Error=Y-Y_hat,
+                 Abs_error=abs(Error),
+                 PC_error= Abs_error/Y)
+
+ggplot(X_df, aes(x=Var1,y=Y_hat))  + 
+  facet_wrap(~Var2, scales="free") +
+   geom_ribbon(aes(ymin=Y_low,ymax=Y_hi), fill="grey") +
+  geom_line() + 
+  theme_minimal() +geom_point(aes(y=Y))
+
+ggplot(X_df, aes(x=Var2,y=Y_hat))  + 
+  facet_wrap(~Var1, scales="free") +
+   geom_ribbon(aes(ymin=Y_low,ymax=Y_hi), fill="grey") +
+  geom_line() + 
+  theme_minimal() +geom_point(aes(y=Y))
+
+X_df %>% summarise(mean(PC_error))
+
+
+```
+
+
+## Automatic Relevance detection
+
+Higher points indicate relevance
+
+```{r}
+
+
+ard_df <- rbind(tibble(Model="20D",
+             ScaleLength=coef(mod3)$range,
+             Dimension=1:20),
+      tibble(Model="10D",
+             ScaleLength=coef(mod2)$range,
+             Dimension=1:10),
+      tibble(Model="2D",
+             ScaleLength=coef(mod1)$range,
+             Dimension=1:2))
+
+
+ggplot(ard_df, aes(x=Dimension, y= 1/ScaleLength,colour=Model,shape=Model))+
+  geom_point() + ggtitle("Automatic Relevance Detection") + facet_wrap(~Model)
+
+```
+
+## Nugget estimates
+```{r}
+
+nug_df <- tibble(Model=c("2d","10d","20d"),
+       Nugget_hat= c(coef(mod1)$nugget,
+                     coef(mod2)$nugget,
+                     coef(mod3)$nugget),
+       True_nugget=nug_var**2)
+
+ggplot(nug_df, aes(x=Model,y=Nugget_hat)) + geom_point() + 
+  geom_hline(aes(yintercept=True_nugget))
+
+
+```
+
+## Sensitivity
+
+Sensitivity analysis based on numerically probing the emulator and calculating Sobol indicies
+
+```{r}
+
+wrap_mod <- function(krig_model){
+  predict_krig <- function(X){
+    predict(krig_model, newdata=X, checkNames=F,
+                 type="SK")$mean
+  }
+  return(predict_krig)
+}
+
+
+sens_f1<- wrap_mod(mod1)
+x <- fast99(model = sens_f1, factors = c("X1","X2"), n = 1000,
+            q = "qunif", q.arg = list(min = -pi, max = pi))
+
+x
+
+plot(x)
+```
+
+
+```{r}
+sens_f2<- wrap_mod(mod2)
+x <- fast99(model = sens_f2, factors = 10, n = 5000,
+            q = "qunif", q.arg = list(min = -pi, max = pi))
+
+x
+
+plot(x)
+
+
+```
+
+
+### 20 Dimensions
+
+```{r}
+sens_f3<- wrap_mod(mod3)
+x <- fast99(model = sens_f3, factors = 20, n = 10000,
+            q = "qunif", q.arg = list(min = -pi, max = pi))
+
+x
+
+plot(x)
+
+```
+
+
+
+
+
+
+
+
