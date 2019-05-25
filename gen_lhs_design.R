@@ -23,7 +23,20 @@ Df <- data.frame(D)
 
 colnames(Df) <- varied_pars
 
-write.csv(Df, file="design.csv", row.names = F)
+time_stamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+
+
+dir.create(file.path("designs",
+                     "lhs"),
+           recursive = T,
+           showWarnings = F)
+
+
+write.csv(Df, 
+          file=file.path("designs",
+                         "lhs",
+                         paste0("lhs_",time_stamp, ".csv")),
+          row.names = F)
 
 
 
