@@ -2,10 +2,12 @@ library(yaml)
 
 cmd_arg <- commandArgs(trailingOnly = T)
 
+if (length(cmd_arg)==0){
+  cmd_arg <- c("design.csv", 1)
+}
 
 design_file <- cmd_arg[1]
 run_no <- cmd_arg[2] # ie. csv line
-ex_dir <- cmd_arg[3]
 
 design_space <- read.csv(design_file)
 
@@ -18,7 +20,7 @@ param_names <- paste0("--", gsub("_", "-",names(point)))
 param_args <- mapply(function(name, val) paste(name,val), 
                      param_names, as.numeric(point))
 
-arg <- paste(julia_args, collapse = " ")
+arg <- paste(param_args, collapse = " ")
 # should I save these in a output folder that actually makes sense
 output_opts <- c("--log-file log_", "--city-file cities_",
                  "--link-file link_", "--par-file par_", "--out-file out_")
@@ -35,8 +37,9 @@ rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))
 arg <- paste(c(arg, paste0(output_opts, run_no, ".txt"),
                rand_arg, meta_arg), collapse=" ")
 
-setwd(ex_dir) # really I should add to the julia load path here 
-run_cmd <- paste0("julia run.jl ", arg)
+
+Sys.setenv(JULIA_LOAD_PATH="/storage/RRGraphs:")
+run_cmd <- paste0("julia ../RRGraphs/run.jl ", arg)
 
 system(run_cmd)
 

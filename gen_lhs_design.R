@@ -4,7 +4,7 @@ library(purrr)
 
 pars_config <- yaml::read_yaml("varied_pars.yaml")
 
-varied_pars <- names(pars)
+varied_pars <- names(pars_config)
 
 ranges <- rbind(map_dbl(pars_config,"min"),
                map_dbl(pars_config,"max"))
