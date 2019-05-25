@@ -14,4 +14,4 @@ cd $PBS_O_WORKDIR
 PATH=$PBS_O_PATH
 module load R/3.5.1
 
-Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID
+Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID $REP
