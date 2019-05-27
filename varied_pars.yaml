@@ -1,3 +1,4 @@
+# information
 # probability to keep in contact with an agent encountered while staying (per encounter)
 p_keep_contact:
   min: 0
@@ -22,3 +23,51 @@ p_transfer_info:
 error:
   min: 0
   max: 0.3
+## exploration -----------------------------------------------------------------
+# probability to find connecting links while exploringlocally
+p_find_links:
+  min: 0
+  max: 1
+# probability to find (information about) the destination of a newly discovered link
+p_find_dests:
+  min: 0
+  max: 1
+# learning speed (concerning property values of cities and links) while staying
+speed_expl_stay:
+  min: 0
+  max: 1
+# learning speed while moving (only applies to links)
+speed_expl_move: 
+  min: 0
+  max: 1
+## quality ---------------------------------------------------------------------
+# effect of prox. to exit on quality
+qual_weight_x:
+  min: 0
+  max: 1
+# quality weighting resources
+qual_weight_res: 
+  min: 0
+  max: 1
+# quality weighting friction
+path_weight_frict:
+  min: 0
+  max: 1
+# pos. feedback effect of traffic on quality
+weight_traffic:
+  min: 0
+  max: 1
+## resources -------------------------------------------------------------------
+# resource costs while staying per time step [0-...]
+costs_stay:
+  min: 0
+  max: 10
+# resource costs while moving per time step and unit of friction [0-...]
+costs_move: 
+  min: 0
+  max: 10
+# gain in resources per timestep at cities (multiplied by resource property of city) [0-...]
+ben_resources:
+  min: 0
+  max: 10
+

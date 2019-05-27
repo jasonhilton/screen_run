@@ -122,7 +122,7 @@ D2 <- morris(factors=20, r=25,
 nobs <- dim(D2$X)[1]
 
 Y2 <- true_function(D2$X) + rnorm(nobs, 0, noise_sig)
-tell(D2, Y2) # Modifies the morris object D1
+tell(D2, Y2) # Modifies the morris object D2
 plot(D2) 
 
 print(D2)
