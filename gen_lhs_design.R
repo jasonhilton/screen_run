@@ -12,7 +12,7 @@ ranges <- rbind(map_dbl(pars_config,"min"),
 
 k <- length(varied_pars)
 
-N <- 10
+N <- 400
 
 D <- lhs::maximinLHS(n=N, k=k, method="build", dup=4)
 
