@@ -65,7 +65,7 @@ arg <- paste(c(arg, out_arg,
                rand_arg, meta_arg), collapse=" ")
 
 
-Sys.setenv(JULIA_LOAD_PATH="/storage/RRGraphs:")
+Sys.setenv(JULIA_LOAD_PATH="../RRGraphs:")
 run_cmd <- paste0("julia ../RRGraphs/run.jl ", arg)
 
 system(run_cmd)
