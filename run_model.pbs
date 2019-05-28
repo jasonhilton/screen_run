@@ -3,7 +3,7 @@
 # Set requirements for the job.
 # - these can be overridden on the qsub command line
 
-#PBS -l walltime=06:00:00
+#PBS -l walltime=16:00:00
 #PBS -l nodes=1:ppn=4
 #PBS -t 1-400
 # above line tells pbs to submit an array, with 16 jobs,
@@ -14,4 +14,4 @@ cd $PBS_O_WORKDIR
 PATH=$PBS_O_PATH
 module load R/3.5.1
 
-Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID $REP
+Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID $N_REPS
