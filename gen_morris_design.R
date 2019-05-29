@@ -46,6 +46,11 @@ dir.create(file.path("designs",
            recursive = T,
            showWarnings = F)
 
+dir.create(file.path("designs",
+                     "morris_obj"),
+           recursive = T,
+           showWarnings = F)
+
 
 write.csv(Df, 
           file=file.path("designs",
@@ -53,7 +58,8 @@ write.csv(Df,
                          paste0("morris_",time_stamp, ".csv")),
           row.names = F)
 
-
+saveRDS(D, file=file.path("designs", "morris_obj",
+                          paste0("morris_",time_stamp, ".rds")))
 
 
 
