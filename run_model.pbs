@@ -6,8 +6,8 @@
 #PBS -l walltime=16:00:00
 #PBS -l nodes=1:ppn=4
 #PBS -t 1-400
-# above line tells pbs to submit an array, with 16 jobs,
-# and $PBS_ARRAYID numbering 1-16
+# above line tells pbs to submit an array. The number range following -t gives the 
+# elements of the array and $PBS_ARRAYID will hold the index to this array for each job
 
 
 cd $PBS_O_WORKDIR

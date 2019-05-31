@@ -50,7 +50,7 @@ out_arg <- paste0(out_arg,
              
 
 ## Control meta parameters -----------------------------------------------------
-meta_pars <- read_yaml("meta_pars.yaml")
+meta_pars <- read_yaml("config/meta_pars.yaml")
 meta_param_names <- paste0("--", gsub("_", "-",names(meta_pars)))
 
 meta_arg <- mapply(function(name, val) paste(name,val),

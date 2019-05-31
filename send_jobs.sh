@@ -2,7 +2,7 @@
 
 module load R/3.5.1
 
-Rscript gen_lhs_design.R
+Rscript scripts/gen_lhs_design.R
 csv_file=$(ls designs/lhs | tail -n 1)
 runs=$(cat designs/lhs/$csv_file | wc --lines)
 runs=$((runs-1)) # one line is the headers!

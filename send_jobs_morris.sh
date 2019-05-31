@@ -2,7 +2,7 @@
 
 module load R/3.5.1
 
-Rscript gen_morris_design.R
+Rscript scripts/gen_morris_design.R
 csv_file=$(ls designs/morris | tail -n 1)
 runs=$(cat designs/morris/$csv_file | wc --lines)
 runs=$((runs-1)) # one line is the headers!
