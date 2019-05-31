@@ -179,8 +179,8 @@ exit_ent <-  exit_df %>% group_by(Point, Repetition) %>%
 # perfectly uncorrelated (unit diagonals) correlation matrix have 
 # a determinant of exactly 1 - eg prod(diag(diag(50)))
 # randomly sampled values will be a little bit correlated in a small sample
-# by change, and therefore will be less than 1
-# mean(map_dbl(1:10000,function(x) determinant(cor(matrix(rnorm(50),10,5)))$modulus))
+# by chance, and therefore will be less than 1
+# e.g. mean(map_dbl(1:10000,function(x) determinant(cor(matrix(rnorm(50),10,5)))$modulus))
 
 get_log_det <- function(D){
   X <- D %>% spread(Repetition, count) %>% 
@@ -196,11 +196,8 @@ det_df %<>% mutate(Point=as.numeric(Point))
 
 det_df %>% ggplot(aes(Point, log_det_exit_cor)) + geom_point()
 
-def_ent <-left_join(det_df, exit_ent %>% ungroup()%>% mutate(Point=as.numeric(Point)) %>% 
+def_ent <- left_join(det_df, exit_ent %>% ungroup() %>% mutate(Point=as.numeric(Point)) %>% 
             group_by(Point) %>%
             summarise(Log_ent_count=mean(Log_ent_count)) %>% ungroup())
-
-
-
 
 
