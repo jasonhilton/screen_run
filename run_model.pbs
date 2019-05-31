@@ -3,7 +3,7 @@
 # Set requirements for the job.
 # - these can be overridden on the qsub command line
 
-#PBS -l walltime=10:00:00
+#PBS -l walltime=16:00:00
 #PBS -l nodes=1:ppn=4
 #PBS -t 1-400
 # above line tells pbs to submit an array, with 16 jobs,
