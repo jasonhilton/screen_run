@@ -1,0 +1,104 @@
+# This scripts takes the simulation batch results, and extracts the variables we
+# are actually interested in analysing...
+## At present these are:
+# - number of migrants arrived
+# - mean capital.
+# - log determinant of correlation matrix of correlation in exit proportion 
+# across repetitions (small sample?) 
+# - log entropy of distribution over outputs. -\sum_i p_i log(p_i) where p_i is the 
+# proportion of exits through city i.
+# The third has one output per point, the others, one output per repetition.
+
+library(readr)
+library(tibble)
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(tidyr)
+library(magrittr)
+library(stringi)
+library(yaml)
+
+source("R/ingest_data_functions.R")
+
+cmd_args <- commandArgs(trailingOnly = T)
+
+if(length(cmd_args)==0){
+  results_date <- tail(list.files(file.path("results", "summary")),1)
+} else {
+  results_date <- cmd_args[1]
+}
+
+res_path <- file.path("results", "summary", results_date)
+
+logs <- readRDS(file.path(res_path, "log.rds")) %>% ungroup()
+
+
+logs %<>% filter(Step==max(Step))
+
+var_pars <- read_yaml("config/varied_pars.yaml")
+
+
+out_df <- logs %>% select(Point, Repetition, names(var_pars), 
+                          n_arrived, mean_cap) %>% 
+  mutate_all(as.numeric)
+
+## exits -----------------------------------------------------------------------
+
+exit_df  <- readRDS(file.path(res_path, "exits.rds"))
+
+# proportion through each exit within reps.
+exit_df %<>% group_by(Point, Repetition) %>% 
+  mutate(p_count = count/sum(count))
+
+## this describes how flat the dist is over cities.
+# on the absolute scale it is bounded by 0 and log(N), with N the number of cities
+# on the log scale, it is bounded between log(log(N)) and -oo. 
+# The max occurs when p_i=p_j for all i,j. 
+# The min occurs when p_i= 1 for any i.
+# Is this a sensible measure?
+
+exit_ent <-  exit_df %>% group_by(Point, Repetition) %>%
+  filter(p_count!=0) %>% # plogp =0 when p is 0...
+  summarise(Log_ent_count = log(-sum(p_count*log(p_count))))
+
+exit_ent %<>% ungroup() %>% mutate_all(as.numeric)
+
+# determinant ------------------------------------------------------------------
+## We want to also know the degree of sameness over repetitions. 
+## Is the distribution in repetition 1 correlated with the distribution in rep. 2?
+## The question is - what is the volume of the correlation matrix
+## which should be n_reps * n_reps
+
+
+# perfectly uncorrelated (unit diagonals) correlation matrix have 
+# a determinant of exactly 1 - eg prod(diag(diag(50)))
+# randomly sampled values will be a little bit correlated in a small sample
+# by chance, and therefore will be less than 1
+# e.g. mean(map_dbl(1:10000,function(x) determinant(cor(matrix(rnorm(50),10,5)))$modulus))
+# The log will therefore necessarily be negative.
+
+get_log_det <- function(D){
+  X <- D %>% spread(Repetition, count) %>% 
+    select(-id) %>% as.matrix()
+  return(determinant(cor(X))$modulus)
+}
+
+det_df <- exit_df %>% ungroup()%>% select(id,Point,Repetition, count) %>% nest(-Point) %>%
+  mutate(log_det_exit_cor = map_dbl(data, get_log_det))
+
+det_df %<>% mutate(Point=as.numeric(Point))
+
+det_df %>% ggplot(aes(Point, log_det_exit_cor)) + geom_point()
+
+def_ent <- left_join(det_df, exit_ent %>% ungroup() %>% mutate(Point=as.numeric(Point)) %>% 
+                       group_by(Point) %>%
+                       summarise(Log_ent_count=mean(Log_ent_count)) %>% ungroup())
+
+
+out_df %<>% left_join(exit_ent) %>% left_join(select(det_df, -data))
+
+saveRDS(out_df, file.path(res_path, "output_df.rds"))
+
+
+
