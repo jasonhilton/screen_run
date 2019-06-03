@@ -63,10 +63,10 @@ Sys.setenv(JULIA_LOAD_PATH="../RRGraphs:")
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
   rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))
-  arg <- paste(c(arg, 
+  arg <- paste(c(meta_arg, # put this first, so varied pars overwrite non-varied
+                 arg, 
                  paste0(out_arg, rep_no,".txt"),
-                 rand_arg, 
-                 meta_arg), 
+                 rand_arg), 
                collapse=" ")
   run_cmd <- paste0("julia ../RRGraphs/run.jl ", arg)
   

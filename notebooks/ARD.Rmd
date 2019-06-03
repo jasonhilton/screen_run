@@ -1,0 +1,409 @@
+---
+title: "GPs and Automatic Relevance Detection"
+output: html_document
+
+---
+
+# ARD
+
+Automatic Relevance Detection involves fitting a gaussian process with a constant
+mean function, and interpreting the roughness parameters for each input as a measure of whether the input is active.
+
+
+$$
+\pmb{y} \sim N(f(.), \sigma^{2} \texttt{C}(.,.)) \\
+C(\pmb{x}_i, \pmb{x}_j) = \texttt{exp} \left(-\sum_k\frac{(x_{ik}-x_{jk})^{2}}{\tau_k}\right) \\
+f(.) = \mu
+$$
+
+Where $\pmb{x}_i$ and $\pmb{x}_j$ are input vectors and $k$ indexes the input dimension. The rougness parameters $\pmb\tau$ are the measures of relevance, and these are related to the relative change in the output for a change in each input.
+
+
+
+# Reading in the data
+
+This is a set of 400 input points generated using a latin hypercube design with 6 reps per point. The input space includes all 17 dimensions - this may be optimistic!
+The `world` was held constant over all runs - for the moment.
+
+
+```{r, message=FALSE, warning=FALSE}
+library(here)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(GGally)
+library(magrittr)
+library(DiceKriging)
+
+results_date <- "20190530_193859"
+out_df <- readRDS(file.path(here(), 
+                            "results", 
+                            "summary",
+                            results_date,
+                            "output_df.rds"))
+
+lhs_D <- read.csv(file.path(here(), "designs","lhs",
+                     paste0("lhs_", results_date, ".csv")))
+
+varied_pars <- colnames(lhs_D)
+out_pars <- c("Log_ent_count", "mean_cap", "n_arrived")
+
+```
+
+
+I accidently set one of the parameters (`weight_traffic`) to zero for all values during the run process.
+I can test that ARD is working as expected by pretending this was really varied.
+If we always get zero relevance for this value, then we know we're not incorrectly assuming non-relevant variables are important.
+
+
+```{r}
+
+lhs_D %<>% mutate(Point=1:n())
+
+test_df <- out_df %>% left_join(lhs_D, by= "Point")
+all(test_df$p_transfer_info.x ==test_df$p_transfer_info.y)
+all(test_df$error.x ==test_df$error.y)
+all(test_df$weight_traffic.x == test_df$weight_traffic.y)
+
+out_df$weight_traffic <- test_df$weight_traffic.y
+
+```
+
+
+# Descriptives - number of arrived migrants
+This looks at the number of migrants arrived by the last time point. 
+
+```{r}
+ggplot(out_df, aes(x=n_arrived)) + geom_histogram()
+ggplot(out_df, aes(x=log(n_arrived))) + geom_histogram()
+
+
+```
+
+There's one point with no arrivals that looks a bit dodgy! Let's exclude it.
+
+```{r}
+
+out_df %>% filter(n_arrived==0)
+out_df %<>% filter(n_arrived!=0)
+
+
+```
+
+Plot them all to get an idea of the within/between variation.
+
+```{R}
+ggplot(out_df, aes(x=Point,y=n_arrived)) + geom_point()
+ggplot(out_df, aes(x=Point,y=n_arrived)) + geom_point() + ylim(8000,10000) 
+
+```
+
+Crude anova...
+```{r}
+arrived_av <- aov(n_arrived~as.factor(Point), out_df)
+summary(arrived_av)
+
+```
+
+
+# Fitting a GP
+I first need to rescale to lie in the unit square
+
+
+
+Scaling to the unit cube only needs a division by the maximum, as the min is zero.
+
+
+```{r}
+
+out_df %<>% mutate_at(vars(one_of(varied_pars)), function(x) x/max(x))
+
+
+```
+
+
+Scale the outputs and take the mean and variance of *mean* output at each point.
+
+
+
+```{r}
+
+out_std_df <- out_df %>% mutate_at(vars(one_of(out_pars)),
+                                   function(x) (x - mean(x))/sd(x))
+
+out_std_df %<>% group_by(Point) %>% 
+  summarise_at(vars(one_of(out_pars)), 
+               list(mean=mean, 
+                    var=function(x) var(x)/n()))
+
+
+ggplot(out_std_df,aes(x=n_arrived_mean,
+                      y=n_arrived_var)) + geom_point()
+
+
+out_std_df <- left_join(out_std_df,out_df) %>%
+  filter(Repetition==1) %>% select(-one_of(out_pars), -log_det_exit_cor, -Repetition)
+
+```
+
+Let's just take a look at the bivariate correlations. Which variables drive the 
+very low values in the number arrived.
+
+```{r}
+GGally::ggscatmat(out_std_df %>% mutate(low_mu=as.factor(n_arrived_mean< -2)), columns=8:14, color="low_mu")
+
+
+GGally::ggscatmat(out_std_df %>% mutate(low_mu=as.factor(n_arrived_mean< -2)), columns=15:19, color="low_mu")
+
+GGally::ggscatmat(out_std_df %>% mutate(low_mu=as.factor(n_arrived_mean< -2)), columns=20:24, color="low_mu")
+
+```
+
+`p_transfer_info` seems the biggest driver.
+
+___
+
+# N arrived
+
+
+Fit a gp and plot the roughness parameters. Higher = relevant.
+
+```{r}
+
+# this is a useful test of the ARD method.
+# I know weight traffic was really inactive (because of my mistake in the runs)
+# lets see if the ard detects this.
+
+
+D <- out_std_df %>% select(one_of(varied_pars))
+
+
+yy <- out_std_df$n_arrived_mean
+yy_var <- out_std_df$n_arrived_var
+
+library(doParallel)
+library(foreach)
+registerDoParallel()
+
+mod1 <- km(response=yy, design=D, noise.var=yy_var, 
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F))
+
+
+ARD_1 <- tibble(Parameters=names(D), Values=coef(mod1)$range)
+              
+ggplot(ARD_1, 
+       aes(x=Parameters, y=2/Values)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+
+```
+
+What if we try excluding the extreme points as these look to be runs that do 
+not reach equilibrium.
+
+
+
+
+```{r}
+
+out_subset_df <- out_std_df %>% filter(n_arrived_mean > -2)
+
+
+D2 <-  out_subset_df %>% select(one_of(varied_pars))
+yy <- out_subset_df$n_arrived_mean
+yy_var <- out_subset_df$n_arrived_var
+
+mod2 <- km(response=yy, design=D2, noise.var=yy_var, 
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F))
+
+
+ARD_2 <- tibble(Parameters=names(D2), Values=coef(mod2)$range)
+              
+ggplot(ARD_2, aes(x=Parameters, y=2/Values)) + geom_point() + coord_flip()
+
+ARD_both <- rbind(ARD_1 %>% mutate(Model="All Data"),
+                  ARD_2 %>% mutate(Model="Restricted Data"))
+
+ggplot(ARD_both, aes(x=Parameters, y=2/Values,
+                     colour=Model)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+```
+
+
+
+Final comparison - what about if we fit the model with an estimated nugget instead of supplying the empirical variance?
+
+```{R}
+mod3 <- km(response=yy, design=D2, nugget.estim = T,
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F))
+
+
+ARD_3 <- tibble(Parameters=names(D2), Values=coef(mod3)$range)
+ARD_all <- rbind(ARD_1 %>% mutate(Model="All Data"),
+                  ARD_2 %>% mutate(Model="Restricted Data"),
+                  ARD_3 %>% mutate(Model="Restricted Data - nugget estimated"))
+
+ggplot(ARD_all, aes(x=Parameters, y=2/Values,
+                     colour=Model)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+
+```
+
+
+
+
+Mostly the same. 
+
+The smoothness parameters tau have a lower boundary here, to aid convergence, so for the all-data models, tau might hit the boundary for some of the less sensitive variables.
+To be on the safe side, take the *minimum* smoothness / maximum roughness for each parameter.
+
+This list has the ones that show some roughness/ sensitivity.
+
+```{r}
+ARD_all %>% group_by(Parameters) %>% filter(Values ==min(Values)) %>% 
+  ungroup() %>% arrange(Values) %>% filter(Values<1.99)
+
+```
+
+___
+
+# Log-entropy of distribution of cities
+High entropy = all the cities get the same proportion of migrants.
+
+```{r}
+
+
+
+yy <- out_std_df$Log_ent_count_mean
+yy_var <- out_std_df$Log_ent_count_var
+
+
+registerDoParallel() # sometimes the parellel thing seems to get a bit lost
+mod_ent_1 <- km(response=yy, design=D, noise.var=yy_var,
+                covtype = "gauss",
+                multistart = 10, 
+                control=list(trace=F))
+
+
+ARD_ent_1 <- tibble(Parameters=names(D), Values=coef(mod_ent_1)$range)
+
+
+mod_ent_2 <- km(response=out_subset_df$Log_ent_count_mean, 
+                design=D2, 
+                noise.var=out_subset_df$Log_ent_count_var,
+                covtype = "gauss",
+                multistart = 10, 
+                control=list(trace=F))
+
+
+ARD_ent_2 <- tibble(Parameters=names(D2), Values=coef(mod_ent_2)$range)
+
+
+ARD_ent <- rbind(ARD_ent_1 %>% mutate(Model="All data"),
+                 ARD_ent_2 %>% mutate(Model="Subset"))
+
+ggplot(ARD_ent, aes(x=Parameters, y=2/Values,
+                    colour=Model)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+ARD_ent %>% arrange(Values)
+
+
+```
+
+___
+
+# Mean Capital
+
+```{r}
+
+yy <- out_std_df$mean_cap_mean
+yy_var <- out_std_df$mean_cap_var
+
+
+registerDoParallel() # sometimes the parellel thing seems to get a bit lost
+mod_cap_1 <- km(response=yy, design=D, noise.var=yy_var,
+                covtype = "gauss",
+                multistart = 10, 
+                control=list(trace=F))
+
+
+ARD_cap_1 <- tibble(Parameters=names(D), Values=coef(mod_cap_1)$range)
+
+mod_cap_2 <- km(response=out_subset_df$mean_cap_mean, 
+                design=D2, 
+                noise.var=out_subset_df$mean_cap_var,
+                covtype = "gauss",
+                multistart = 10, 
+                control=list(trace=F))
+
+
+ARD_cap_2 <- tibble(Parameters=names(D2), Values=coef(mod_cap_2)$range)
+
+ARD_cap <- rbind(ARD_cap_1 %>% mutate(Model="All data"),
+                 ARD_cap_2 %>% mutate(Model="Subset"))
+
+ggplot(ARD_cap, aes(x=Parameters, y=2/Values, colour=Model)) + 
+  geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+ARD_cap %>% arrange(Values)
+
+```
+
+
+___
+
+# Correlations over cities
+
+How likely is it that one city will get high proportion of migrants, given 
+it got a high proportion in a previous repetition with the same parameters.
+
+
+```{R}
+
+ggplot(out_df,aes(x=log_det_exit_cor)) + geom_histogram()
+
+       
+```
+
+```{r}
+
+log_det_df <- out_df %>% group_by(Point) %>% summarise_each(first) %>% 
+  ungroup() %>% arrange(Point)
+
+yy <- log_det_df$log_det_exit_cor
+
+yy <- (yy - mean(yy))/ sd(yy)
+
+# put dummy weight traffic in.
+
+D3 <- log_det_df %>% select(one_of(varied_pars))
+
+registerDoParallel() # sometimes the parellel thing seems to get a bit lost
+modA <- km(response=yy, design=D3, nugget.estim = T,
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F))
+
+
+ARD_A <- tibble(Parameters=varied_pars, Values=coef(modA)$range)
+
+ggplot(ARD_A, aes(x=Parameters, y=2/Values)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+ARD_A %>% arrange(Values)
+
+```
+
+
