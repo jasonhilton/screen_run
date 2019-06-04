@@ -397,12 +397,22 @@ modA <- km(response=yy, design=D3, nugget.estim = T,
            control=list(trace=F))
 
 
-ARD_A <- tibble(Parameters=varied_pars, Values=coef(modA)$range)
+ARD_det <- tibble(Parameters=varied_pars, Values=coef(modA)$range)
 
-ggplot(ARD_A, aes(x=Parameters, y=2/Values)) + geom_point() + coord_flip() + 
+ggplot(ARD_det, aes(x=Parameters, y=2/Values)) + geom_point() + coord_flip() + 
   geom_hline(yintercept = 1)
 
-ARD_A %>% arrange(Values)
+ARD_det %>% arrange(Values)
+
+
+ARD <- rbind(ARD_det %>% mutate(Output="log_det_exit_cor",
+                                Model="All Data"),
+             ARD_cap %>% mutate(Output="mean_cap"),
+             ARD_all %>% mutate(Output="n_arrived"),
+             ARD_ent %>% mutate(Output="Log_ent_count"))
+
+saveRDS(ARD, file.path(here(),"results", paste0("ARD_", results_date,  ".rds")))
+
 
 ```
 

@@ -1,0 +1,201 @@
+---
+title: "Morris"
+author: "Jason Hilton"
+date: "4 June 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The Morris screening method is based on choosing on estimating linear effects of each parameters by varying each parameter One At a Time (OAT) from some starting point. 
+By choosing a large number of starting points and repeating this procedure, you get a more robust estimate of this 'main effect'. By taking the average absolute effect you can also avoid cancelling. The variance in these effects provides a measure of the non-linear and interaction effects associated with each input.
+
+
+
+```{r}
+library(here)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(magrittr)
+library(ggrepel)
+library(sensitivity)
+
+results_date <- "20190529_134410"
+out_df <- readRDS(file.path(here::here(),
+                            "results",
+                            "summary",
+                            results_date, 
+                            "output_df.rds"))
+
+
+design <- read.csv(file.path(here::here(), 
+                            "designs",
+                            "morris",
+                            paste0("morris_", results_date,".csv")))
+
+varied_pars <- colnames(design)
+
+outputs <- c("Log_ent_count", "mean_cap", "n_arrived")
+
+out_mean_df <- out_df %>% arrange(Point) %>% group_by(Point) %>% 
+  summarise_at(vars(one_of(outputs)), mean)
+
+
+```
+
+
+We can plot both the linear and non-linear effects. Top right of this plot are the most relevant ones. To determine what threshold means we should screen a variable out, we need to (self-)elict what is a meaningful devation from zero and meaningful non-linear effect, and then think about the distribution of these effects to determine a threshold.
+
+```{r}
+# 20 starting points.
+
+# Annoyingly I didn't save the original morris object I generated the design with
+# I regenerate one with the same parameters here to have access to its methods
+# I can then overwrite the randomly generated design with the one I produced runs with.
+morris_design_obj <- morris(factors=length(varied_pars), r=c(20,100), 
+            design=list(type="oat",
+                        levels=6,
+                        grid.jump=2))
+
+design_mat <- as.matrix(design)
+
+rescale <- function(x) (x -min(x))/diff(range(x))
+
+standardise <- function(x) (x- mean(x))/sd(x)
+
+design_mat <- apply(design_mat, 2, rescale)
+
+morris_design_obj$X  <- design_mat
+
+D_arrived <- morris_design_obj # does this deep copy? probably
+
+
+get_elementary_effects <- function(morris_obj, output){
+  tell(morris_obj,output) 
+  sens_df <- tibble(Parameter=colnames(morris_obj$ee),
+                 mu=apply(morris_obj$ee, 2, function(x) mean(x)),
+                 mu_star=apply(morris_obj$ee, 2, function(x) mean(abs(x))),
+                 sigma=apply(morris_obj$ee, 2, sd))
+  return(sens_df)
+}
+
+
+
+
+
+
+arrived_sens_df <- get_elementary_effects(morris_design_obj, 
+                                          standardise(out_mean_df$n_arrived))
+
+
+ggplot(arrived_sens_df, 
+       aes(x=mu_star, y= sigma, colour=Parameter)) + 
+  geom_point(size=2) + 
+  geom_text_repel(aes(mu_star, sigma, label=Parameter)) +
+  ggtitle("Linear vs Non-linear/Interaction effects by parameter for N_arrived")
+
+
+```
+
+Compare with my automatic relevance detection results- some difference of opinion!
+
+```{r}
+
+ARD <- readRDS(file.path(here(), "results", "ARD_20190530_193859.rds"))
+
+
+ARD %<>% rename(Parameter=Parameters)
+
+ARD %<>% filter(!grepl("nugget", Model)) %>% 
+  mutate(Model=ifelse(grepl("^Restricted", Model), "Subset", "All data"))
+
+ARD %<>% filter(Model=="All data") %>%
+  mutate(ARD_Selected = (Values < 1.95))
+
+arrived_sens_df <- left_join(arrived_sens_df, 
+                             ARD %>% filter(Output=="n_arrived"))
+
+ggplot(arrived_sens_df, 
+       aes(x=mu_star, y= sigma, colour=ARD_Selected, shape=ARD_Selected)) + 
+  geom_point(size=2) + 
+  geom_text_repel(aes(mu_star, sigma, label=Parameter,colour=ARD_Selected)) +
+  ggtitle("Linear vs Non-linear/Interaction effects by parameter for N_arrived")
+
+```
+
+
+# Log-ent
+
+```{r}
+
+
+
+ent_sens_df <- get_elementary_effects(morris_design_obj, 
+                                      standardise(out_mean_df$Log_ent_count))
+
+
+
+ent_sens_df <- left_join(ent_sens_df, ARD %>% filter(Output=="Log_ent_count"))
+
+ggplot(ent_sens_df, 
+       aes(x=mu_star, y= sigma, colour=ARD_Selected, shape=ARD_Selected)) + 
+  geom_point(size=2) + 
+  geom_text_repel(aes(mu_star, sigma, label=Parameter,colour=ARD_Selected)) +
+  ggtitle("Linear vs Non-linear/Interaction effects by parameter",
+          " Entropy of distribution over cities")
+
+```
+
+
+# mean cap
+
+
+```{r}
+
+cap_sens_df <- get_elementary_effects(morris_design_obj, 
+                                      standardise(out_mean_df$mean_cap))
+
+
+cap_sens_df <- left_join(cap_sens_df, ARD %>% filter(Output=="mean_cap"))
+
+
+ggplot(cap_sens_df, 
+       aes(x=mu_star, y= sigma, colour=ARD_Selected, shape=ARD_Selected)) + 
+  geom_point(size=2) + 
+  geom_text_repel(aes(mu_star, sigma, label=Parameter,colour=ARD_Selected)) +
+  ggtitle("Linear vs Non-linear/Interaction effects by parameter",
+          " Entropy of distribution over cities")
+
+
+
+```
+
+
+
+# Correlation of city popularity between repetitions
+
+ This is probably most unreliable - ie subject to false positives.
+
+
+```{r}
+
+log_det <- out_df %>% filter(Repetition==1) %>% select(log_det_exit_cor) %>% unlist
+
+log_det_sens_df <- get_elementary_effects(morris_design_obj, 
+                                      standardise(log_det))
+
+log_det_sens_df <- left_join(log_det_sens_df, ARD %>% filter(Output=="log_det_exit_cor"))
+
+ggplot(log_det_sens_df, 
+       aes(x=mu_star, y= sigma, colour=ARD_Selected, shape=ARD_Selected)) + 
+  geom_point(size=2) + 
+  geom_text_repel(aes(mu_star, sigma, label=Parameter,colour=ARD_Selected)) +
+  ggtitle("Linear vs Non-linear/Interaction effects by parameter",
+          " Entropy of distribution over cities")
+
+```
