@@ -1,0 +1,308 @@
+---
+title: "validating_emulators"
+author: "Jason Hilton"
+date: "10 June 2019"
+output: html_document
+---
+
+
+
+```{r, message=FALSE, warning=FALSE}
+library(here)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(GGally)
+library(magrittr)
+library(DiceKriging)
+
+results_date <- "20190530_193859"
+out_df <- readRDS(file.path(here(), 
+                            "results", 
+                            "summary",
+                            results_date,
+                            "output_df.rds"))
+
+lhs_D <- read.csv(file.path(here(), "designs","lhs",
+                     paste0("lhs_", results_date, ".csv")))
+
+varied_pars <- colnames(lhs_D)
+out_pars <- c("Log_ent_count", "mean_cap", "n_arrived")
+missing <- out_df %>% filter(n_arrived==0) %>% select(Point) %>% unlist() %>%  first()
+out_df %<>% filter(n_arrived!=0)
+
+out_df %<>% mutate_at(vars(one_of(varied_pars)), function(x) x/max(x))
+out_std_df <- out_df %>% mutate_at(vars(one_of(out_pars)),
+                                   function(x) (x - mean(x))/sd(x))
+
+out_std_df %<>% group_by(Point) %>% 
+  summarise_at(vars(one_of(out_pars)), 
+               list(mean=mean, 
+                    var=function(x) var(x)/(n()-1)))
+
+
+
+
+covar_df <- left_join(out_std_df,out_df) %>%
+  filter(Repetition==1) %>% select(-one_of(out_pars), -log_det_exit_cor, -Repetition)
+
+covar_df$weight_traffic <- lhs_D$weight_traffic[-missing]
+
+D <- covar_df %>% select(one_of(varied_pars))
+```
+
+
+# Do the n_arrived one.
+
+```{r}
+
+yy <- out_std_df$n_arrived_mean
+yy_var <- out_std_df$n_arrived_var
+
+library(doParallel)
+library(foreach)
+registerDoParallel()
+
+mod1 <- km(response=yy, design=D, noise.var=yy_var, 
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F), upper=rep(5, length(varied_pars)))
+
+
+ARD_1 <- tibble(Parameters=names(D), Values=coef(mod1)$range)
+              
+ggplot(ARD_1, 
+       aes(x=Parameters, y=5/Values)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+mod2 <- km(response=yy, design=D, 
+           covtype = "gauss",
+           nugget.estim = T,
+           multistart = 10, 
+           control=list(trace=F), upper=rep(5, length(varied_pars)))
+
+
+ARD_2 <- tibble(Parameters=names(D), Values=coef(mod2)$range)
+              
+ggplot(ARD_2, 
+       aes(x=Parameters, y=5/Values)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+
+
+```
+
+
+## Validation set
+
+I use the morris design runs as a validation set...
+
+```{r}
+results_date <- "20190529_134410"
+valid_df <- readRDS(file.path(here::here(),
+                            "results",
+                            "summary",
+                            results_date, 
+                            "output_df.rds"))
+
+
+design <- read.csv(file.path(here::here(), 
+                            "designs",
+                            "morris",
+                            paste0("morris_", results_date,".csv")))
+
+varied_pars <- colnames(design)
+
+valid_df$weight_traffic <- design$weight_traffic
+
+valid_df %<>% mutate_at(vars(one_of(varied_pars)), function(x) x/max(x))
+
+valid_std_df <- valid_df %>% mutate_at(vars(one_of(out_pars)),
+                                   function(x) (x - mean(x))/sd(x))
+
+valid_std_df %<>% group_by(Point) %>% 
+  summarise_at(vars(one_of(out_pars)), 
+               list(mean=mean, 
+                    var=function(x) var(x)/(n()-1)))
+
+
+valid_covar_df <- left_join(valid_std_df,valid_df) %>%
+  filter(Repetition==1) %>% select(-one_of(out_pars), -log_det_exit_cor, -Repetition)
+# the select gets rid of the NON-STANDARDISD inputs from valid_df
+
+pred1<- predict(mod1, newdata=valid_covar_df %>% select(one_of(varied_pars)), type="UK")
+pred2<- predict(mod2, newdata=valid_covar_df %>% select(one_of(varied_pars)), type="UK")
+
+valid_covar_df %<>% mutate(pred_mean=pred1$mean,
+                          pred_L95= pred1$lower95, 
+                          pred_U95=pred1$upper95,
+                          pred_error = pred_mean- n_arrived_mean,
+                          pred_nug=pred2$mean, 
+                          pred_nug_L95= pred2$lower95, 
+                          pred_nug_U95=pred2$upper95)
+
+
+ggplot(valid_covar_df, aes(x=Point, y=pred_mean)) + 
+  geom_point() + 
+  geom_linerange(aes(ymin=pred_L95, ymax=pred_U95)) +
+  geom_point(aes(y=n_arrived_mean), col="red")
+
+ggplot(valid_covar_df, aes(x=p_transfer_info, y=pred_mean)) + 
+  geom_point() + 
+  geom_linerange(aes(ymin=pred_L95, ymax=pred_U95)) +
+  geom_point(aes(y=n_arrived_mean), col="red")
+
+
+ggplot(valid_covar_df, aes(x=p_transfer_info, y=pred_error)) + 
+  geom_point()
+
+
+ggplot(valid_covar_df, aes(x=n_arrived_mean, y=pred_mean)) + 
+  geom_point() + 
+  geom_abline()
+
+
+```
+
+```{r}
+valid_long <- valid_covar_df %>% 
+  select(one_of(varied_pars), n_arrived_mean,
+         pred_mean, pred_L95, pred_U95,Point, pred_error) %>%
+  gather(Parameter,Value,-n_arrived_mean, -Point,
+         -pred_mean,-pred_L95,-pred_U95, -pred_error)
+
+ggplot(valid_long, aes(x=Value, y=pred_error)) + geom_point() + 
+  facet_wrap(~Parameter)
+
+```
+
+Compare vs my code
+
+```{R}
+
+library(emulatorsPHD)
+# reps <- out_df %>% group_by(Point) %>% summarise(N=n()) %>% select(N) %>% unlist()
+# hetem <- fit_hetero_emulator(D,
+#                              out_std_df$n_arrived_mean,
+#                              out_std_df$n_arrived_var,
+#                              reps)
+# 
+# 
+# saveRDS(hetem, file.path(here(), "results", "n_arrived_hetem.rds"))
+hetem <- readRDS(file.path(here(), "results", "n_arrived_hetem.rds"))
+
+ggplot(tibble(varied_pars, roughness=sqrt(hetem$mean_em$estims$omega_hat)),
+       aes(x=varied_pars, roughness)) + geom_point() + coord_flip()
+
+
+pred_hetem <- predict(hetem,
+                      valid_covar_df %>% select(one_of(varied_pars)),
+                      variance="mean", # variance of observations or function
+                      percentile=0.95)
+
+valid_covar_df %<>% mutate(pred_hetem_mean =  pred_hetem$mean,
+                           pred_hetem_L95 =  pred_hetem$q0.025,
+                           pred_hetem_U95 =  pred_hetem$q0.975,
+                           pred_hetem_error =  pred_hetem_mean-n_arrived_mean)
+
+
+ggplot(valid_covar_df, aes(x=Point, y=pred_hetem_mean)) + 
+  geom_point() + 
+  geom_linerange(aes(ymin=pred_hetem_L95, ymax=pred_hetem_U95)) +
+  geom_point(aes(y=n_arrived_mean), col="red")
+
+
+ggplot(valid_covar_df, aes(x=pred_mean, y=pred_hetem_mean)) + 
+  geom_point() + geom_abline()
+
+ggplot(valid_covar_df, aes(x=pred_mean, y=pred_hetem_mean)) + 
+  geom_point() + geom_abline()
+
+
+
+ggplot(valid_covar_df, aes(x=pred_error, y=pred_hetem_error)) + 
+  geom_point() + geom_abline()
+
+```
+
+
+fit on subset...
+
+```{r}
+
+
+chosen_pars <- varied_pars[sqrt(hetem$mean_em$estims$omega_hat) > 0.2]
+
+yy <- out_std_df$n_arrived_mean
+yy_var <- out_std_df$n_arrived_var
+
+D <- covar_df %>% select(one_of(chosen_pars))
+
+mod3 <- km(response=yy, design=D, noise.var=yy_var, 
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F), upper=rep(5, length(chosen_pars)))
+
+pred3<- predict(mod3, newdata=valid_covar_df %>% select(one_of(chosen_pars)),
+                type="UK")
+
+
+valid_covar_df %<>% mutate(pred_mean=pred3$mean,
+                          pred_L95= pred3$lower95, 
+                          pred_U95=pred3$upper95,
+                          pred_error = pred_mean- n_arrived_mean)
+
+
+ggplot(valid_covar_df, aes(x=Point, y=pred_mean)) + 
+  geom_point() + 
+  geom_linerange(aes(ymin=pred_L95, ymax=pred_U95)) +
+  geom_point(aes(y=n_arrived_mean), col="red")
+
+
+ggplot(valid_covar_df, aes(x=pred_error, y=pred_hetem_error)) + 
+  geom_point() + geom_abline()
+
+```
+
+```{r capital}
+
+D <- covar_df %>% select(one_of(varied_pars))
+yy <- out_std_df$mean_cap_mean
+yy_var <- out_std_df$mean_cap_var
+
+library(doParallel)
+library(foreach)
+registerDoParallel()
+
+mod1 <- km(response=yy, design=D, noise.var=yy_var, 
+           covtype = "gauss",
+           multistart = 10, 
+           control=list(trace=F), upper=rep(5, length(varied_pars)))
+
+
+ARD_1 <- tibble(Parameters=names(D), Values=coef(mod1)$range)
+              
+ggplot(ARD_1, 
+       aes(x=Parameters, y=5/Values)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+mod2 <- km(response=yy, design=D, 
+           covtype = "gauss",
+           nugget.estim = T,
+           multistart = 10, 
+           control=list(trace=F), upper=rep(5, length(varied_pars)))
+
+
+ARD_2 <- tibble(Parameters=names(D), Values=coef(mod2)$range)
+              
+ggplot(ARD_2, 
+       aes(x=Parameters, y=5/Values)) + geom_point() + coord_flip() + 
+  geom_hline(yintercept = 1)
+
+
+
+
+
+```

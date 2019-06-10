@@ -7,6 +7,9 @@
 # across repetitions (small sample?) 
 # - log entropy of distribution over outputs. -\sum_i p_i log(p_i) where p_i is the 
 # proportion of exits through city i.
+# - variance in counts of people passing over links
+# - variance of exit proportion over repetitions
+# - variance of exit proportion within repetitions
 # The third has one output per point, the others, one output per repetition.
 
 library(readr)
@@ -43,6 +46,15 @@ out_df <- logs %>% select(Point, Repetition, names(var_pars),
                           n_arrived, mean_cap) %>% 
   mutate_all(as.numeric)
 
+
+## links -----------------------------------------------------------------------
+link_df <- readRDS(file.path(res_path, "links.rds")) %>% ungroup()
+
+link_df %<>% group_by(Point, Repetition) %>% 
+  summarise(var_links=var(count)) 
+
+link_df %<>% ungroup() %<>% mutate_all(as.numeric)
+
 ## exits -----------------------------------------------------------------------
 
 exit_df  <- readRDS(file.path(res_path, "exits.rds"))
@@ -64,6 +76,14 @@ exit_ent <-  exit_df %>% group_by(Point, Repetition) %>%
 
 exit_ent %<>% ungroup() %>% mutate_all(as.numeric)
 
+
+# comparison - the variance within rep (across)
+exit_var_df <- exit_df %>% group_by(Point, Repetition) %>%
+  summarise(Var_count = var(p_count)) %>% ungroup() %>% mutate_all(as.numeric)
+
+exit_ent %<>% left_join(exit_var_df)
+
+
 # determinant ------------------------------------------------------------------
 ## We want to also know the degree of sameness over repetitions. 
 ## Is the distribution in repetition 1 correlated with the distribution in rep. 2?
@@ -84,19 +104,34 @@ get_log_det <- function(D){
   return(determinant(cor(X))$modulus)
 }
 
-det_df <- exit_df %>% ungroup()%>% select(id,Point,Repetition, count) %>% nest(-Point) %>%
+det_df <- exit_df %>% ungroup()%>% select(id,Point,Repetition, count) %>% 
+  nest(-Point) %>%
   mutate(log_det_exit_cor = map_dbl(data, get_log_det))
 
 det_df %<>% mutate(Point=as.numeric(Point))
 
 det_df %>% ggplot(aes(Point, log_det_exit_cor)) + geom_point()
 
-def_ent <- left_join(det_df, exit_ent %>% ungroup() %>% mutate(Point=as.numeric(Point)) %>% 
+var_rep_df <- exit_df %>% group_by(Point, id) %>%
+  summarise(Var_count_rep = var(p_count)) %>% 
+  ungroup() %>% group_by(Point) %>% 
+  summarise(Var_count_rep=mean(Var_count_rep)) %>% 
+  ungroup() %>% mutate_all(as.numeric)
+
+det_df %<>% left_join(var_rep_df)
+
+# --- combine and save
+
+def_ent <- left_join(det_df, exit_ent %>% ungroup() %>% 
+                       mutate(Point=as.numeric(Point)) %>% 
                        group_by(Point) %>%
                        summarise(Log_ent_count=mean(Log_ent_count)) %>% ungroup())
 
 
 out_df %<>% left_join(exit_ent) %>% left_join(select(det_df, -data))
+
+out_df %<>% left_join(link_df)
+out_df %<>% arrange(Point, Repetition)
 
 saveRDS(out_df, file.path(res_path, "output_df.rds"))
 

@@ -57,4 +57,18 @@ city_df %<>% left_join(par_df)
 saveRDS(city_df, file.path("results", "summary",results_date, "exits.rds"))
 
 
+## links ----------------------------------------------------------------------
 
+files <- list.files(res_path, pattern = "link*")
+
+
+link_df <- map_df(files,
+                  function(f, res_path) {
+                    quietly(load_file)(f, res_path)
+                  }, 
+                  res_path=res_path)
+
+link_df %<>% rename(id=`# id`) # fast or slow?
+
+
+saveRDS(link_df, file.path("results", "summary",results_date, "links.rds"))

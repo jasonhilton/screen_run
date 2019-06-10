@@ -1,0 +1,56 @@
+---
+title: "Simulating from a gp"
+author: "Jason Hilton"
+date: "6 June 2019"
+output: html_document
+---
+
+
+
+
+How flat is a length scale of 2? (the default limit in km)
+
+Covariance kernel is
+
+$$
+c(\pmb{x_i}, \pmb{x_j}) = \sigma^{2} \exp( -\sum_k\frac{(x_ik - x_jk)^2}{2\theta_k^{2}})
+$$
+
+
+The covariance structure is seperable, so we can think in one dimension.
+We scale the input to lie between 0-1.
+
+So the maximum distance x_i-x_j is 1, and assuming \theta hits the limit of 2, we have 
+a correlation 
+
+$$
+r(x_i, x_j) = \exp\left(-\frac{(x_{i} - x_j)^2}{2\theta^{2}}\right) \\
+= \exp(-1/8)
+$$
+which is `r exp(-1/8)`
+
+
+We can simulate from this, assuming sd of 1 and mean =0
+
+```{r}
+
+library(purrr)
+library(ggplot2)
+
+x <- seq(0,1,0.01)
+
+C <- exp(-as.matrix(dist(x)**2)/8) + diag(1e-6, length(x)) # for stability
+
+sims <- t(map(1:10, function(x) t(chol(C)) %*% rnorm(dim(C)[1])))
+ylims<-c(max(map_dbl(sims, max)),min(map_dbl(sims, min)))
+
+plot(x,sims[[1]], ylim=ylims, type="l")
+walk(sims, function(y) lines(x,y))
+
+
+```
+
+
+This is quite flat but probably not flat enough.
+
+

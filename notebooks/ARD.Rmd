@@ -11,9 +11,9 @@ mean function, and interpreting the roughness parameters for each input as a mea
 
 
 $$
-\pmb{y} \sim N(f(.), \sigma^{2} \texttt{C}(.,.)) \\
+\pmb{f(.)} \sim N(m(.), \sigma^{2} \texttt{C}(.,.)) \\
 C(\pmb{x}_i, \pmb{x}_j) = \texttt{exp} \left(-\sum_k\frac{(x_{ik}-x_{jk})^{2}}{\tau_k}\right) \\
-f(.) = \mu
+m(.) = \mu
 $$
 
 Where $\pmb{x}_i$ and $\pmb{x}_j$ are input vectors and $k$ indexes the input dimension. The rougness parameters $\pmb\tau$ are the measures of relevance, and these are related to the relative change in the output for a change in each input.
@@ -190,7 +190,7 @@ registerDoParallel()
 mod1 <- km(response=yy, design=D, noise.var=yy_var, 
            covtype = "gauss",
            multistart = 10, 
-           control=list(trace=F))
+           control=list(trace=F), upper=5)
 
 
 ARD_1 <- tibble(Parameters=names(D), Values=coef(mod1)$range)

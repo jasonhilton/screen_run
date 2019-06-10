@@ -169,7 +169,7 @@ ggplot(cap_sens_df,
   geom_point(size=2) + 
   geom_text_repel(aes(mu_star, sigma, label=Parameter,colour=ARD_Selected)) +
   ggtitle("Linear vs Non-linear/Interaction effects by parameter",
-          " Entropy of distribution over cities")
+          " Captial of agents")
 
 
 
@@ -196,6 +196,6 @@ ggplot(log_det_sens_df,
   geom_point(size=2) + 
   geom_text_repel(aes(mu_star, sigma, label=Parameter,colour=ARD_Selected)) +
   ggtitle("Linear vs Non-linear/Interaction effects by parameter",
-          " Entropy of distribution over cities")
+          " Correlation of distribution between runs")
 
 ```
