@@ -1,0 +1,292 @@
+---
+title: "Screening Comparisons"
+author: "Jason Hilton"
+date: "10/06/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(here)
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(purrr)
+library(GGally)
+library(magrittr)
+library(DiceKriging)
+library(doParallel)
+library(foreach)
+registerDoParallel()
+
+
+results_date <- "20190530_193859"
+out_df <- readRDS(file.path(here(), 
+                            "results", 
+                            "summary",
+                            results_date,
+                            "output_df.rds"))
+
+lhs_D <- read.csv(file.path(here(), "designs","lhs",
+                     paste0("lhs_", results_date, ".csv")))
+
+varied_pars <- colnames(lhs_D)
+all_out_pars <- c("Log_ent_count", "mean_cap", "n_arrived",
+                  "Var_count", "var_links","log_det_exit_cor",
+                  "Var_count_rep")
+
+out_pars_reps <- c("Log_ent_count", "mean_cap", "n_arrived",
+                   "Var_count", "var_links")
+out_pars_summaries <-c("log_det_exit_cor",
+                       "Var_count_rep")
+
+missing <- out_df %>% filter(n_arrived==0) %>% select(Point) %>% unlist() %>%  
+  first()
+lhs_D %<>% mutate(Point=1:n())
+out_df %<>% filter(n_arrived!=0)
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r}
+
+out_df %<>% mutate_at(vars(one_of(varied_pars)), function(x) x/max(x))
+
+standardise <- function(x) (x - mean(x))/sd(x)
+out_std_df <- out_df %>% mutate_at(vars(one_of(all_out_pars)),
+                                   standardise)
+
+out_std_df <- out_std_df %<>% group_by(Point) %>% 
+  summarise_at(vars(one_of(out_pars_reps)), 
+               list(mean=mean, 
+                    var=function(x) var(x)/n()))
+
+out_std_df <- left_join(out_std_df, out_df) %>%
+  filter(Repetition==1) %>% select(-one_of(out_pars_reps),
+                                   -Repetition)
+
+
+out_std_df$weight_traffic <- lhs_D$weight_traffic[-missing]
+```
+
+
+
+```{r}
+
+out_vars_df <- out_std_df %>% select(-out_pars_summaries)
+ 
+fit_df <- left_join(out_vars_df %>% 
+                      select(-ends_with("_var")) %>%
+                      gather(Output, Mean, ends_with("_mean")) %>%
+                      mutate(Output=gsub("_mean", "", Output)),  
+                    out_vars_df %>%
+                      select(-ends_with("_mean")) %>%
+                      gather(Output, Var, ends_with("_var")) %>%
+                      mutate(Output=gsub("_var", "", Output)))
+  
+
+fit_df %<>% nest(-Output)
+
+
+fit_km <- function(data, varied_pars){
+  km(response=data$Mean, 
+     design=data %>% select(varied_pars), 
+     noise.var=data$Var, 
+     covtype = "gauss",
+     multistart = 10, 
+     control=list(trace=F), upper=rep(3, length(varied_pars)))
+}
+
+
+
+# fit_df %<>% mutate(fit = map(data, fit_km, varied_pars))
+# 
+# saveRDS(fit_df, 
+#         file.path(here(), 
+#                   "results", 
+#                   "summary",
+#                   results_date,
+#                   "fit_df.rds"))
+
+```
+
+
+```{r, fig.height=12, fig.width=12}
+fit_df <- readRDS(file.path(here(), 
+                  "results", 
+                  "summary",
+                  results_date,
+                  "fit_df.rds"))
+
+
+extract_roughness <- function(fit){
+  tibble(Parameters=colnames(fit_df$fit[[1]]@X), 
+         Values=1/coef(fit)$range)
+}
+
+fit_df %<>% mutate(roughness=map(fit, extract_roughness))
+
+rough_df <- fit_df %>% select(Output, roughness) %>% unnest()
+
+ggplot(rough_df, 
+       aes(x=Parameters,
+           y=Values)) +
+  geom_point() +
+  facet_wrap(~Output) + 
+  coord_flip() +
+  geom_hline(yintercept = 0.5)
+
+```
+
+
+```{r, fig.height=12, fig.width=12}
+out_sums_df <- out_std_df %>% select(Point,varied_pars, out_pars_summaries)
+
+out_sums_df %<>% 
+  gather(Output, Value, out_pars_summaries) %>%
+  nest(-Output)
+
+fit_km <- function(data, varied_pars){
+  km(response=standardise(data$Value), 
+     design=data %>% select(varied_pars), 
+     nugget.estim = T,
+     covtype = "gauss",
+     multistart = 10, 
+     control=list(trace=F), 
+     upper=rep(3, length(varied_pars)))
+}
+
+out_sums_df %<>% mutate(fit = map(data, fit_km, varied_pars))
+
+
+out_sums_df %<>% mutate(roughness=map(fit, extract_roughness))
+
+rough_sums_df <- out_sums_df %>% select(Output, roughness) %>% unnest()
+
+ggplot(rough_sums_df, 
+       aes(x=Parameters,
+           y=Values)) +
+  geom_point() +
+  facet_wrap(~Output) + 
+  coord_flip() +
+  geom_hline(yintercept = 0.5)
+```
+
+
+
+
+```{r, fig.height=12, fig.width=12}
+rough_df <- rbind(rough_df, rough_sums_df)
+
+ggplot(rough_df, 
+       aes(x=Parameters,
+           y=Values, 
+           colour=Output,
+           shape=Output)) +
+  geom_point(size=4, position = "jitter") +
+  coord_flip() +
+  geom_hline(yintercept = 0.5) +
+  scale_shape_manual(values = letters[0:7])
+
+
+```
+
+
+# GEMSA runs
+
+```{r}
+GEMSA_df <- readr::read_csv(file.path(here(), "results",
+                                      "JB_Screening_experiments.csv"),
+                skip=1) %>% select(-starts_with("X")) %>% drop_na()
+
+header <- read.csv(file.path(here(),
+                             "results", "JB_Screening_experiments.csv"),
+                   header=FALSE, stringsAsFactors = F)[1,]
+
+var_names <- header[seq(3,12,2)] %>% 
+  map(function(x) stringi::stri_split(x,fixed=": ")[[1]][2]) %>%
+  unlist()
+
+
+
+# probably a less ugly way of doing this..
+GEMSA_df %<>% gather(Variable, Value, -Input, -Input_name) %>%
+  mutate(var_ind = gsub("GEM-SA|ANOVA","",Variable),
+         var_ind = as.numeric(gsub("_", "", var_ind)),
+         var_ind = ifelse(is.na(var_ind), 1, var_ind + 1),
+         Output=var_names[var_ind],
+         Method=stringi::stri_extract(Variable, regex="[A-Z]+-*[A-Z]*"))
+
+
+GEMSA_df %<>% select(Input_name, Method, Value,Output)
+
+ggplot(GEMSA_df, aes(x=Input_name, y=Value,colour=Method)) + geom_point() +
+  facet_wrap(~Output) + 
+  coord_flip()
+
+```
+
+# Compare across methods
+
+```{r}
+
+screen_df <- rbind(GEMSA_df %>% rename(Parameters=Input_name),
+          rough_df %>% mutate(Method="ARD") %>%
+            rename(Value=Values))
+
+screen_df$Output %>% unique()
+
+screen_df %<>% 
+  mutate(Output = case_when(
+    Output=="var_n_link"~ "var_links",
+    T~Output
+  ))
+
+ggplot(screen_df, aes(x=Parameters, y=Value,colour=Method)) + geom_point() +
+  facet_grid(Output~Method ,scales="free") + 
+  coord_flip()
+
+ggplot(screen_df %>% filter(Output=="mean_cap"), 
+       aes(x=Parameters, y=Value,colour=Method)) + geom_point() +
+  coord_flip() +
+  ggtitle("Capital") + facet_grid(~Method, scales="free")
+
+ggplot(screen_df %>% filter(Output=="n_arrived"), 
+       aes(x=Parameters, y=Value,colour=Method)) + geom_point() +
+  coord_flip() +
+  ggtitle("Number Arrived") + facet_grid(~Method, scales="free")
+
+ggplot(screen_df %>% filter(Output=="var_links"), 
+       aes(x=Parameters, y=Value,colour=Method)) + geom_point() +
+  coord_flip() +
+  ggtitle("Variance over Links") + facet_grid(~Method, scales="free")
+
+ggplot(screen_df %>% filter(Output %in% c("log_det_exit_cor", 
+                                          "Var_count_rep",
+                                          "prop_var",
+                                          "prop_stdd")), 
+       aes(x=Parameters, y=Value,colour=Output)) + geom_point() +
+  coord_flip() +
+  ggtitle("Similarity in Exit distribution between reps") + 
+  facet_grid(~Method, scales="free")
+
+ggplot(screen_df %>% filter(Output %in% c("Log_ent_count", 
+                                          "Var_count",
+                                          "prop_var",
+                                          "prop_stdd")), 
+       aes(x=Parameters, y=Value,colour=Output)) + geom_point() +
+  coord_flip() +
+  ggtitle("Variation in Exit distribution within reps") + 
+  facet_grid(~Method, scales="free")
+
+
+
+```
+
+
+
+
