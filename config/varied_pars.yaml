@@ -17,7 +17,7 @@ p_info_contacts:
   max: 1
 # probability to exchange information while communicating (per item)
 p_transfer_info:
-  min: 0
+  min: 0.05
   max: 1
 # amount of noise during information transmission
 error:
