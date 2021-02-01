@@ -27,7 +27,8 @@ source("R/ingest_data_functions.R")
 cmd_args <- commandArgs(trailingOnly = T)
 
 if(length(cmd_args)==0){
-  results_date <- tail(list.files(file.path("results", "summary")),1)
+  results_date <- tail(list.files(file.path("results", "summary"),
+                                  pattern="^20"),1)
 } else {
   results_date <- cmd_args[1]
 }
@@ -43,7 +44,7 @@ var_pars <- read_yaml("config/varied_pars.yaml")
 
 
 out_df <- logs %>% select(Point, Repetition, names(var_pars), 
-                          n_arrived, mean_cap) %>% 
+                          mean_freq_plan,) %>% 
   mutate_all(as.numeric)
 
 
