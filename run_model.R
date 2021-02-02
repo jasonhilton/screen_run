@@ -36,9 +36,9 @@ dir.create(out_dir,
            showWarnings = F)
 
 out_opts <- c("--log-file", "--city-file",
-          "--link-file", "--par-file", "--out-file")
+          "--link-file", "--par-file")
 out_prefixes <- c("log", "cities",
-              "link", "par", "out")
+              "link", "par")
 
 out_arg <- mapply(paste, 
                   out_opts,
@@ -59,7 +59,7 @@ meta_arg <- mapply(function(name, val) paste(name,val),
 
 
 ## Stick them together and run reps in a loop ----------------------------------
-Sys.setenv(JULIA_LOAD_PATH="../RRGraphs:")
+Sys.setenv(JULIA_LOAD_PATH="../RRGraphs_CT:")
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
   rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))

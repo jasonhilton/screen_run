@@ -2,7 +2,7 @@ library(lhs)
 library(yaml)
 library(purrr)
 
-pars_config <- yaml::read_yaml("config/varied_pars.yaml")
+pars_config <- yaml::read_yaml("config/varied_pars_calib.yaml")
 
 varied_pars <- names(pars_config)
 

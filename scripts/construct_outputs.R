@@ -44,7 +44,7 @@ var_pars <- read_yaml("config/varied_pars.yaml")
 
 
 out_df <- logs %>% select(Point, Repetition, names(var_pars), 
-                          mean_freq_plan,) %>% 
+                          n_arrived, mean_freq_plan,var_n_link) %>% 
   mutate_all(as.numeric)
 
 
@@ -73,7 +73,7 @@ exit_df %<>% group_by(Point, Repetition) %>%
 
 exit_ent <-  exit_df %>% group_by(Point, Repetition) %>%
   filter(p_count!=0) %>% # plogp =0 when p is 0...
-  summarise(Log_ent_count = log(-sum(p_count*log(p_count))))
+  summarise(Log_ent_count = log(-sum(p_count*log(p_count + 1e-15))))
 
 exit_ent %<>% ungroup() %>% mutate_all(as.numeric)
 
@@ -97,6 +97,7 @@ exit_ent %<>% left_join(exit_var_df)
 # randomly sampled values will be a little bit correlated in a small sample
 # by chance, and therefore will be less than 1
 # e.g. mean(map_dbl(1:10000,function(x) determinant(cor(matrix(rnorm(50),10,5)))$modulus))
+# (Note that determinant returns the log by default)
 # The log will therefore necessarily be negative.
 
 get_log_det <- function(D){
@@ -106,7 +107,7 @@ get_log_det <- function(D){
 }
 
 det_df <- exit_df %>% ungroup()%>% select(id,Point,Repetition, count) %>% 
-  nest(-Point) %>%
+  nest(data = c(id, Repetition, count)) %>%
   mutate(log_det_exit_cor = map_dbl(data, get_log_det))
 
 det_df %<>% mutate(Point=as.numeric(Point))
