@@ -15,7 +15,12 @@ source("R/ingest_data_functions.R")
 
 cmd_args <- commandArgs(trailingOnly = T)
 
-results_date <- cmd_args[1]
+
+if (length(cmd_args)==0){
+  results_date <- tail(list.files("results", "^[20]"),1)
+} else {
+  results_date <- cmd_args[1]  
+}
 
 res_path <- file.path("results", results_date)
 
@@ -33,7 +38,12 @@ saveRDS(par_df, file.path( "results", "summary", results_date, "par.rds"))
 ## logs ------------------------------------------------------------------------
 files <- list.files(res_path, pattern = "log*")
 
-logs_df <- map_df(files, load_file, res_path=res_path)
+logs_df <- map_df(files, 
+                  function(f,i, res_path) {
+                    print(i)
+                    quietly(load_file)(f,res_path)$result
+                  }
+                  res_path=res_path)
 
 logs_df %<>% group_by(Point, Repetition) %>% mutate(Step=1:n())
 logs_df %<>% rename(mean_cap = `# mean_cap`)
@@ -47,7 +57,12 @@ saveRDS(logs_df, file.path("results", "summary",results_date, "log.rds"))
 
 files <- list.files(res_path, pattern = "cities*")
 
-city_df <- map_df(files, load_file, res_path=res_path)
+city_df <- imap_dfr(files,
+                  function(f, i, res_path){
+                    print(i)
+                    quietly(load_file)(f, res_path)$result
+                  }, 
+                  res_path=res_path)
 
 city_df %<>% filter(type=="EXIT") %>% rename(id=`# id`) %>%
   select(-x, -qual,-N)
@@ -62,9 +77,10 @@ saveRDS(city_df, file.path("results", "summary",results_date, "exits.rds"))
 files <- list.files(res_path, pattern = "link*")
 
 
-link_df <- map_df(files,
-                  function(f, res_path) {
-                    quietly(load_file)(f, res_path)
+link_df <- imap_dfr(files,
+                  function(f, i, res_path) {
+                    print(i)
+                    quietly(load_file)(f, res_path)$result
                   }, 
                   res_path=res_path)
 
