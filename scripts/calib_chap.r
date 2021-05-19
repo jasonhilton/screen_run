@@ -6,6 +6,8 @@ library(ggplot2)
 library(purrr)
 library(GGally)
 library(magrittr)
+library(doParallel)
+library(foreach)
 library(DiceKriging)
 set.seed(1234)
 
@@ -51,8 +53,7 @@ D <- covar_df %>% select(one_of(varied_pars))
 yy <- out_std_df$mean_freq_plan_mean
 yy_var <- out_std_df$mean_freq_plan_var
 
-library(doParallel)
-library(foreach)
+
 registerDoParallel()
 
 mod1 <- km(response=yy, design=D, noise.var=yy_var, 
