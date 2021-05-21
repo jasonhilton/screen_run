@@ -59,7 +59,7 @@ meta_arg <- mapply(function(name, val) paste(name,val),
 
 
 ## Stick them together and run reps in a loop ----------------------------------
-Sys.setenv(JULIA_LOAD_PATH="../RRGraphs_CT:")
+Sys.setenv(JULIA_LOAD_PATH="../RRGraphs:")
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
   rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))

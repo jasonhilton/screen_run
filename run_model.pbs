@@ -12,6 +12,7 @@
 
 cd $PBS_O_WORKDIR
 PATH=$PBS_O_PATH
-module load R/3.5.1
+module load conda
+source activate Rstan
 
 Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID $N_REPS
