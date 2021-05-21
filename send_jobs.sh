@@ -1,6 +1,7 @@
 #! /bin/bash
 
-module load R/3.5.1
+module load conda
+source activate Rstan
 
 Rscript scripts/gen_lhs_design.R
 csv_file=$(ls designs/lhs | tail -n 1)
