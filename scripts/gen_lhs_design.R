@@ -1,6 +1,6 @@
 library(lhs)
 library(dplyr)
-
+library(magrittr)
 library(glue)
 library(yaml)
 library(purrr)
@@ -48,7 +48,7 @@ iwalk(Df$param_file, function(pars,i){
                paste0("param_", i, ".jl")))
 })
 
-write.csv(Df, 
+write.csv(Df %>% select(-param_file),
           file=file.path("designs",
                          "lhs",
                          paste0("lhs_",time_stamp, ".csv")),
