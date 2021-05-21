@@ -14,12 +14,12 @@ p_transfer_info:
 # amount of noise during information transmission
 error:
   min: 0
-  max: 0.3
+  max: 0.5
 # penalty ---------------------------------------------------------
 "effect of risk on path costs"
 path_penalty_risk:
   min: 0
-  max: 1
+  max: 10
 # deaths noticing -----------------------------------------------------
 p_notice_death:
   min: 0 
@@ -30,11 +30,14 @@ speed_risk_indir:
 speed_risk_obs:
   min: 0 
   max: 1
-speed_expl_risk:
+speed_expl_stay:
+  min: 0 
+  max: 1
+speed_expl_move:
   min: 0 
   max: 1
 # risk scale -----------------------------------------------------
 risk_scale:
-  min: 0
-  max: 1
+  min: 4
+  max: 18
   
