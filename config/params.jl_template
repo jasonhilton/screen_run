@@ -115,9 +115,9 @@ const VF = Vector{Float64}
 	"probability to notice if migrant on same link died"
 	p_notice_death_o :: Float64 = {p_notice_death}
 	"effect on risk perception of contact death"
-	speed_risk_indir :: Float64 = {speed_risk_indr}
+	speed_risk_indir :: Float64 = {speed_risk}
 	"effect on risk perception of observed death"
-	speed_risk_obs	:: Float64	= {speed_risk_obs}
+	speed_risk_obs	:: Float64	= {speed_risk}
 	"speed of learning about risk by exploration (relative to other properties)"
 	speed_expl_risk	:: Float64	= 1.0
 
