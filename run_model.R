@@ -19,24 +19,37 @@ time_stamp <- stringi::stri_extract(design_file, regex="[0-9]{8}_[0-9]{6}")
 
 point <- design_space[run_no,]
 
+# JULIA_LOAD_PATH=$JULIA_LOAD_PATH:../rgct_data 
+# julia ../rgct_data/run.jl 
+# ../params.jl 
+# -m ../map_med1.json 
+# -s ../mediterranean '--wait 10 --warmup 100 --int 0.01 0.077 0.153 0.428 0.389 
+#                      --risks 0.01 0.023 0.020 0.029 0.048'  
+# -t 500
+
+
+
 ## Parameter args --------------------------------------------------------------
-param_names <- paste0("--", gsub("_", "-",names(point)))
 
-param_args <- mapply(function(name, val) paste(name,val), 
-                     param_names, as.numeric(point))
+par_file_path <- file.path("../screen_run/param_files", paste0("param_", run_no, ".jl"))
 
-arg <- paste(param_args, collapse = " ")
+arg <- par_file_path
 
+## Maps ------------------------------------------------------------------------
+
+map_arg <- "-m med/map_med1.json"
+
+arg <- paste(arg, map_arg)
 
 ## Output args -----------------------------------------------------------------
-out_dir <- file.path("results", time_stamp)
+out_dir <- file.path("../screen_run", "results", time_stamp)
 
 dir.create(out_dir,
            recursive = T,
            showWarnings = F)
 
-out_opts <- c("--log-file", "--city-file",
-          "--link-file", "--par-file")
+out_opts <- c("--log-file", "--city-out-file",
+          "--link-out-file", "--par-out-file")
 out_prefixes <- c("log", "cities",
               "link", "par")
 
@@ -47,28 +60,42 @@ out_arg <- paste0(out_arg,
                   "_",
                   run_no,
                   "_")
-             
+
+
+## Parameter args --------------------------------------------------------------
+scen_out <- paste0("--out ", out_dir,  
+                   "/interceptions_", run_no, 
+                   "_{rep_no}", ".txt'")
+scen <- paste0("-s ../screen_run/med/mediterranean ",
+               "'--wait 10 --warmup 100 --int 0.01 0.077 0.153 0.428 0.389 ",
+               "--risks 0.01 0.023 0.020 0.029 0.048 ",
+               scen_out)  
+
+arg = paste(arg, scen)
+
+
 
 ## Control meta parameters -----------------------------------------------------
-meta_pars <- read_yaml("config/meta_pars.yaml")
-meta_param_names <- paste0("--", gsub("_", "-",names(meta_pars)))
-
-meta_arg <- mapply(function(name, val) paste(name,val),
-       meta_param_names, as.numeric(meta_pars))
+# meta_pars <- read_yaml("config/meta_pars.yaml")
+# meta_param_names <- paste0("--", gsub("_", "-",names(meta_pars)))
+# 
+# meta_arg <- mapply(function(name, val) paste(name,val),
+#        meta_param_names, as.numeric(meta_pars))
 
 
 
 ## Stick them together and run reps in a loop ----------------------------------
-Sys.setenv(JULIA_LOAD_PATH="../RRGraphs_CT:")
+Sys.setenv(JULIA_LOAD_PATH="../rgct_data:")
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
-  rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))
-  arg <- paste(c(meta_arg, # put this first, so varied pars overwrite non-varied
-                 arg, 
-                 paste0(out_arg, rep_no,".txt"),
-                 rand_arg), 
+  #rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))
+  #arg <- paste(c(meta_arg, # put this first, so varied pars overwrite non-varied
+  arg <- glue(arg, rep_no=rep_no)
+  arg <- paste(arg,
+               paste0(out_arg, rep_no,".txt", collapse=" "),
+               "-t 500",
                collapse=" ")
-  run_cmd <- paste0("julia ../RRGraphs/run.jl ", arg)
+  run_cmd <- paste0("julia ../rgct_data/run.jl ", arg)
   
   system(run_cmd)
 }
