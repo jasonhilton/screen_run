@@ -1,4 +1,5 @@
 library(yaml)
+library(glue)
 
 cmd_arg <- commandArgs(trailingOnly = T)
 
@@ -10,9 +11,7 @@ if (length(cmd_arg)==0){
 design_file <- cmd_arg[1]
 run_no <- cmd_arg[2] # ie. csv line
 n_reps <- cmd_arg[3] 
-if (length(rep)==0){
-  n_reps <- 1
-}
+
 
 design_space <- read.csv(design_file)
 time_stamp <- stringi::stri_extract(design_file, regex="[0-9]{8}_[0-9]{6}")
@@ -89,15 +88,16 @@ Sys.setenv(JULIA_LOAD_PATH="../rgct_data:")
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
   #rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))
+  temp_arg <- arg
   #arg <- paste(c(meta_arg, # put this first, so varied pars overwrite non-varied
-  arg <- glue(arg, rep_no=rep_no)
-  arg <- paste(arg,
+  temp_arg <- glue(temp_arg, rep_no=rep_no)
+  temp_arg <- paste(temp_arg,
                paste0(out_arg, rep_no,".txt", collapse=" "),
                "-t 500",
                collapse=" ")
-  run_cmd <- paste0("julia ../rgct_data/run.jl ", arg)
-  
-  system(run_cmd)
+  run_cmd <- paste0("julia ../rgct_data/run.jl ", temp_arg)
+  print(run_cmd)
+  #system(run_cmd)
 }
 
 

@@ -3,3 +3,6 @@
 .RData
 .Ruserdata
 *.pbs.*
+
+
+*_*.txt
