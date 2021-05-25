@@ -96,8 +96,7 @@ for (rep_no in 1:n_reps){
                "-t 500",
                collapse=" ")
   run_cmd <- paste0("julia ../rgct_data/run.jl ", temp_arg)
-  print(run_cmd)
-  #system(run_cmd)
+  system(run_cmd)
 }
 
 
