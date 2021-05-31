@@ -1,8 +1,12 @@
+library(readr)
+library(glue)
 library(lhs)
 library(yaml)
 library(purrr)
+library(dplyr)
+library(magrittr)
 
-pars_config <- yaml::read_yaml("config/varied_pars.yaml")
+pars_config <- yaml::read_yaml("config/varied_pars_med.yaml")
 
 varied_pars <- names(pars_config)
 
@@ -38,6 +42,27 @@ Df <- data.frame(DX)
 
 colnames(Df) <- varied_pars
 
+Df %<>% mutate(Float64="{Float64}", 
+               seed=sample(12345234, size = nobs,replace = F))
+
+
+
+params <- read_file("config/params.jl_template")
+
+Df %<>% mutate(param_file=glue(params))
+
+dir.create(file.path("param_files"),
+           recursive = T,
+           showWarnings = F)
+
+# will only work for one design at a time
+iwalk(Df$param_file, function(pars,i){
+  write_file(pars, 
+             file.path("param_files",
+                       paste0("param_", i, ".jl")))
+})
+
+
 time_stamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 
 
@@ -52,7 +77,7 @@ dir.create(file.path("designs",
            showWarnings = F)
 
 
-write.csv(Df, 
+write.csv(Df %>% select(-param_file), 
           file=file.path("designs",
                          "morris",
                          paste0("morris_",time_stamp, ".csv")),

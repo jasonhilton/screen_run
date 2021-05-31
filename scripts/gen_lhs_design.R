@@ -41,7 +41,7 @@ dir.create(file.path("param_files"),
            recursive = T,
            showWarnings = F)
 
-
+# will only work for one design at a time
 iwalk(Df$param_file, function(pars,i){
   write_file(pars, 
              file.path("param_files",
