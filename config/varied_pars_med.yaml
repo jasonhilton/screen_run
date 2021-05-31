@@ -41,13 +41,13 @@ risk_scale:
 # bit messy
 departure1:
   min: 0.2
-  max: 3
+  max: 2.5
 departure2:
   min: 0.2
-  max: 3
+  max: 2.5
 departure3:
-  min: 0.33
-  max: 3
+  min: 0.2
+  max: 2.5
   
 
 
