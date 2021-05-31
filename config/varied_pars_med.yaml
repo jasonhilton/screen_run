@@ -37,3 +37,17 @@ speed_expl_move:
 risk_scale:
   min: 4
   max: 18
+# departures -----------------------------------------------------
+# bit messy
+departure1:
+  min: 0.2
+  max: 3
+departure2:
+  min: 0.2
+  max: 3
+departure3:
+  min: 0.33
+  max: 3
+  
+
+

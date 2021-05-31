@@ -1,11 +1,13 @@
 library(yaml)
 library(glue)
+library(dplyr)
+
 
 cmd_arg <- commandArgs(trailingOnly = T)
 
 if (length(cmd_arg)==0){
   ff <- tail(list.files("designs/lhs/"),1)
-  cmd_arg <- c(file.path("designs","lhs",ff), 1, 1)
+  cmd_arg <- c(file.path("designs","lhs",ff), 1, 2)
 }
 
 design_file <- cmd_arg[1]
@@ -36,7 +38,7 @@ arg <- par_file_path
 
 ## Maps ------------------------------------------------------------------------
 
-map_arg <- "-m med/map_med1.json"
+map_arg <- "-m ../screen_run/med/map_med1.json"
 
 arg <- paste(arg, map_arg)
 
@@ -61,16 +63,24 @@ out_arg <- paste0(out_arg,
                   "_")
 
 
-## Parameter args --------------------------------------------------------------
+## scen args --------------------------------------------------------------
 scen_out <- paste0("--out ", out_dir,  
                    "/interceptions_", run_no, 
                    "_{rep_no}", ".txt'")
 scen <- paste0("-s ../screen_run/med/mediterranean ",
                "'--wait 10 --warmup 100 --int 0.01 0.077 0.153 0.428 0.389 ",
                "--risks 0.01 0.023 0.020 0.029 0.048 ",
-               scen_out)  
+               scen_out)
 
-arg = paste(arg, scen)
+deps <- point %>% select(starts_with("departure"))
+deps <-paste0( deps, collapse=" ")
+
+scen2 <- paste0("-s ../screen_run/med/departures ",
+                "'--warmup 100 --dep ",
+                deps,
+                "' ")
+
+arg <- paste(arg, scen, scen2)
 
 
 
