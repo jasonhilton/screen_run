@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Set requirements for the job.
+# - these can be overridden on the qsub command line
+
+#PBS -l walltime=02:00:00
+#PBS -l nodes=1:ppn=4
+#PBS -t 1-400
+# above line tells pbs to submit an array. The number range following -t gives the 
+# elements of the array and $PBS_ARRAYID will hold the index to this array for each job
+
+
+cd $PBS_O_WORKDIR
+PATH=$PBS_O_PATH
+#module load R/3.5.1
+module load conda
+source activate Rstan
+
+Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID $N_REPS
