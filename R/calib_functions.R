@@ -64,7 +64,8 @@ extract_principal_components <- function(data_matrix, n_pc){
 
 make_stan_data <- function(obs, mods, design, 
                            standard_directions,
-                           sim_means){
+                           sim_means,
+                           sim_vars){
   chol_covars <- map(mods, function(x) x@T)
   em_means <- map(mods, function(x) x@trend.coef)
   covar_pars <- map(mods, function(x) x@covariance@range.val)
@@ -79,6 +80,8 @@ make_stan_data <- function(obs, mods, design,
                   return((C_inv %*% z)[,1])
                 } )
   
+  KK <-  standard_directions %*% diag(sqrt(sim_vars))
+  
   stan_data <- list(
     d=dim(X)[2],
     n_eta=length(obs),
@@ -86,7 +89,7 @@ make_stan_data <- function(obs, mods, design,
     X=X,
     y=obs,
     n_pc=dim(standard_directions)[1],
-    KK=standard_directions,
+    KK=KK,
     cov_pars=do.call(rbind,covar_pars),
     em_var=unlist(em_var),
     em_mu=unlist(em_means),
