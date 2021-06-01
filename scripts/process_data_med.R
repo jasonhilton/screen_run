@@ -29,7 +29,8 @@ res_path <- file.path("results", results_date)
 
 csv_file <- list.files(res_path, pattern = "*.csv")
 
-lhs <- read_csv(file.path(res_path, csv_file))
+#lhs <- read_csv(file.path(res_path, csv_file))
+lhs <- read_csv(file.path("designs", "lhs", paste0("lhs_", results_date, ".csv")))
 
 # fragile (relying on point number)
 lhs %<>% select(-Float64)
