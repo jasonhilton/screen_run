@@ -1,0 +1,7 @@
+n-cities: 600
+n-entries: 6
+exit-dist: 0.5
+n-ini-contacts: 3
+weight-traffic: 0
+n-steps: 500
+rand-seed-world: 123

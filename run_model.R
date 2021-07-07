@@ -1,15 +1,22 @@
 library(yaml)
+library(stringi)
 
 cmd_arg <- commandArgs(trailingOnly = T)
 
 if (length(cmd_arg)==0){
   ff <- tail(list.files("designs/lhs/"),1)
-  cmd_arg <- c(file.path("designs","lhs",ff), 1, 1)
+  cmd_arg <- c(
+    "../rgct_data", # model path
+    file.path("designs","lhs",ff),  # design
+    1, # design point number (run number)
+    1  # rep number)
+  )
 }
 
-design_file <- cmd_arg[1]
-run_no <- cmd_arg[2] # ie. csv line
-n_reps <- cmd_arg[3] 
+model_path <- cmd_arg[1]
+design_file <- cmd_arg[2]
+run_no <- cmd_arg[3] # ie. csv line
+n_reps <- cmd_arg[4] 
 if (length(rep)==0){
   n_reps <- 1
 }
@@ -50,16 +57,21 @@ out_arg <- paste0(out_arg,
              
 
 ## Control meta parameters -----------------------------------------------------
-meta_pars <- read_yaml("config/meta_pars.yaml")
+
+#  extract the last dir in the model path. should be e.g. rgct or RRGraphs
+path_els <- strsplit(model_path, "/")[[1]]
+config_suffix <- path_els[length(path_els)]
+
+meta_pars <- read_yaml(paste0("config/meta_pars_",config_suffix, ".yaml"))
 meta_param_names <- paste0("--", gsub("_", "-",names(meta_pars)))
 
 meta_arg <- mapply(function(name, val) paste(name,val),
-       meta_param_names, as.numeric(meta_pars))
+       meta_param_names, meta_pars)
 
 
 
 ## Stick them together and run reps in a loop ----------------------------------
-Sys.setenv(JULIA_LOAD_PATH="../RRGraphs:")
+Sys.setenv(JULIA_LOAD_PATH=paste0(model_path, ":"))
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
   rand_arg <- paste0("--rand-seed-sim ", sample(10000000,1))
@@ -68,7 +80,7 @@ for (rep_no in 1:n_reps){
                  paste0(out_arg, rep_no,".txt"),
                  rand_arg), 
                collapse=" ")
-  run_cmd <- paste0("julia ../RRGraphs/run.jl ", arg)
+  run_cmd <- paste0("julia ", model_path, "/run.jl ", arg)
   
   system(run_cmd)
 }
