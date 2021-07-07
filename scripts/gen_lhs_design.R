@@ -7,7 +7,7 @@ pars_config <- yaml::read_yaml("config/varied_pars_calib.yaml")
 varied_pars <- names(pars_config)
 
 ranges <- rbind(map_dbl(pars_config,"min"),
-               map_dbl(pars_config,"max"))
+                map_dbl(pars_config,"max"))
 
 
 k <- length(varied_pars)

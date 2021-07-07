@@ -62,7 +62,7 @@ meta_arg <- mapply(function(name, val) paste(name,val),
 Sys.setenv(JULIA_LOAD_PATH="../RRGraphs:")
 for (rep_no in 1:n_reps){
   cat("Repetition ", rep_no, " of ", n_reps)
-  rand_arg <- paste0("--rand-seed-sim ", sample(10000,1))
+  rand_arg <- paste0("--rand-seed-sim ", sample(10000000,1))
   arg <- paste(c(meta_arg, # put this first, so varied pars overwrite non-varied
                  arg, 
                  paste0(out_arg, rep_no,".txt"),
