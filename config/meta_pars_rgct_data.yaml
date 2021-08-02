@@ -77,7 +77,7 @@ res-exp: 	 0.5
 #expected quality at newly found city#
 qual-exp: 0.5
 #expected friction for newly found link#
-frict-exp: [1.25, 12.5]
+frict-exp: '[1.25, 12.5]'
 #prob. to find links when exploring#
 p-find-links: 	 0.5
 #trust in detected friction/risk for discovered links#
