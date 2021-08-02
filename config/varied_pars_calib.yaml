@@ -3,10 +3,6 @@
 p_drop_contact:
   min: 0
   max: 1
-# probability to communicate with local agents (per agent and time step)
-p_info_mingle:
-  min: 0
-  max: 1
 # probability to communicate with an agent on thecontact list (per contact and time step)
 p_info_contacts:
   min: 0

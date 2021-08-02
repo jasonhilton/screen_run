@@ -42,8 +42,8 @@ dir.create(out_dir,
            recursive = T,
            showWarnings = F)
 
-out_opts <- c("--log-file", "--city-file",
-          "--link-file", "--par-file")
+out_opts <- c("--log-file", "--city-out-file",
+          "--link-out-file", "--par-out-file")
 out_prefixes <- c("log", "cities",
               "link", "par")
 
@@ -65,7 +65,8 @@ config_suffix <- path_els[length(path_els)]
 meta_pars <- read_yaml(paste0("config/meta_pars_",config_suffix, ".yaml"))
 meta_param_names <- paste0("--", gsub("_", "-",names(meta_pars)))
 
-meta_arg <- mapply(function(name, val) paste(name,val),
+# add quotes so that vectors are interpreted as one arg.
+meta_arg <- mapply(function(name, val) paste0(name, " '", val, "'"),
        meta_param_names, meta_pars)
 
 
