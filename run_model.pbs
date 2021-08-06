@@ -15,4 +15,4 @@ PATH=$PBS_O_PATH
 module load conda
 source activate Rstan
 
-Rscript run_model.R $MOD_VERSION $DESIGN_FILE $PBS_ARRAYID $N_REPS
+Rscript run_model.R ../rgct_data $MOD_VERSION $DESIGN_FILE $PBS_ARRAYID $N_REPS
