@@ -7,6 +7,7 @@ if (length(cmd_arg)==0){
   ff <- tail(list.files("designs/lhs/"),1)
   cmd_arg <- c(
     "../rgct_data", # model path
+    "M3",
     file.path("designs","lhs",ff),  # design
     1, # design point number (run number)
     1  # rep number)
@@ -14,9 +15,10 @@ if (length(cmd_arg)==0){
 }
 
 model_path <- cmd_arg[1]
-design_file <- cmd_arg[2]
-run_no <- cmd_arg[3] # ie. csv line
-n_reps <- cmd_arg[4] 
+model_version <- cmd_arg[2]
+design_file <- cmd_arg[3]
+run_no <- cmd_arg[4] # ie. csv line
+n_reps <- cmd_arg[5] 
 if (length(rep)==0){
   n_reps <- 1
 }
@@ -59,10 +61,9 @@ out_arg <- paste0(out_arg,
 ## Control meta parameters -----------------------------------------------------
 
 #  extract the last dir in the model path. should be e.g. rgct or RRGraphs
-path_els <- strsplit(model_path, "/")[[1]]
-config_suffix <- path_els[length(path_els)]
 
-meta_pars <- read_yaml(paste0("config/meta_pars_",config_suffix, ".yaml"))
+
+meta_pars <- read_yaml(paste0("config/meta_pars_", model_version, ".yaml"))
 meta_param_names <- paste0("--", gsub("_", "-",names(meta_pars)))
 
 # add quotes so that vectors are interpreted as one arg.

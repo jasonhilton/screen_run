@@ -1,0 +1,37 @@
+# last time point
+stop_time: 500
+#rng seed for world creation#
+rand-seed-world: 		 123
+#number of cities#
+n-cities: 		 300
+#maximum distance for link generation#
+link-thresh: 	 0.1
+#number of departures per time step#
+rate-dep: 	 20
+#time for departures to reach full rate#
+dep-warmup: 	 1.0
+#number of exits#
+n-exits: 		 10
+#number of starting positions#
+n-entries: 		 5
+#where to start connecting cities to exits#
+exit-dist: 	 0.5
+#where to stop connecting cities to entries#
+entry-dist: 	 0.1
+#how many of the closest cities to connect to an entry#
+n-nearest-entry:   3
+#how many of the closest cities to connect to an exit#
+n-nearest-exit:   0
+#quality of entries#
+qual-entry: 	 0.0
+#resources at entries#
+res-entry: 	 0.0
+#quality of exits#
+qual-exit: 	 1
+#resources at exits#
+res-exit: 	 1
+#coordinates of high risk obstacle (rectangle)#
+obstacle:	 '[0.4, 0.3, 0.6, 0.7]'
+# scale > 1.0 required, otherwise path finding breaks
+#how friction scales with distance#
+dist-scal:	 '[1.0, 10.0]'

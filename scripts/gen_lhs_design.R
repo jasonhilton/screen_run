@@ -2,7 +2,10 @@ library(lhs)
 library(yaml)
 library(purrr)
 
-pars_config <- yaml::read_yaml("config/varied_pars_calib.yaml")
+cmd_arg <- commandArgs(trailingOnly = T)
+
+config_file <- cmd_arg[1]
+pars_config <- yaml::read_yaml(config_file)
 
 varied_pars <- names(pars_config)
 

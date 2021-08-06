@@ -1,0 +1,37 @@
+# information
+# probability to lose a contact (per time step and contact)
+p_drop_contact:
+  min: 0
+  max: 1
+# probability to communicate with an agent on thecontact list (per contact and time step)
+p_info_contacts:
+  min: 0
+  max: 1
+# probability to exchange information while communicating (per item)
+p_transfer_info:
+  min: 0.05
+  max: 1
+# amount of noise during information transmission
+error:
+  min: 0
+  max: 0.5
+## exploration -----------------------------------------------------------------
+# learning speed while moving (only applies to links)
+speed_expl_move: 
+  min: 0
+  max: 1
+risk_scale:
+  min: 4
+  max: 20
+p_notice_death_c:
+  min: 0
+  max: 1
+speed_risk_indir:
+  min: 0
+  max: 1
+speed_expl_risk:
+  min: 0
+  max: 1
+path_penalty_risk:
+  min: 0
+  max: 10
