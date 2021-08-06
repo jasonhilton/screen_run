@@ -3,7 +3,7 @@
 # Set requirements for the job.
 # - these can be overridden on the qsub command line
 
-#PBS -l walltime=48:00:00
+#PBS -l walltime=18:00:00
 #PBS -l nodes=1:ppn=4
 #PBS -t 1-400
 # above line tells pbs to submit an array. The number range following -t gives the 
@@ -15,4 +15,4 @@ PATH=$PBS_O_PATH
 module load conda
 source activate Rstan
 
-Rscript run_model.R $DESIGN_FILE $PBS_ARRAYID $N_REPS
+Rscript run_model.R $MOD_VERSION $DESIGN_FILE $PBS_ARRAYID $N_REPS
