@@ -39,7 +39,9 @@ logs <- readRDS(file.path(res_path, "log.rds")) %>% ungroup()
 
 logs %<>% filter(Step==max(Step))
 
-var_pars <- read_yaml("config/varied_pars.yaml")
+#var_pars <- read_yaml("config/varied_pars.yaml")
+var_pars <- read_csv(file.path("results", results_date, 
+                               paste0("lhs_", results_date, ".csv")))
 
 
 out_df <- logs %>% select(Point, Repetition, names(var_pars), 
@@ -111,7 +113,7 @@ det_df <- exit_df %>% ungroup()%>% select(id,Point,Repetition, count) %>%
 
 det_df %<>% mutate(Point=as.numeric(Point))
 
-det_df %>% ggplot(aes(Point, log_det_exit_cor)) + geom_point()
+#det_df %>% ggplot(aes(Point, log_det_exit_cor)) + geom_point()
 
 var_rep_df <- exit_df %>% group_by(Point, id) %>%
   summarise(Var_count_rep = var(p_count)) %>% 

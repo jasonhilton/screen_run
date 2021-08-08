@@ -27,28 +27,28 @@ res_path <- file.path("results", results_date)
 
 # only need one per point (although: seeds?)
 
-files <- list.files(res_path, pattern = "par_[0-9]{1+}_1.txt")
 
-par_df <- map_df(files, load_params, res_path=res_path)
-dir.create(file.path("results", "summary", results_date), recursive=T)
+csv_file <- list.files(res_path, pattern = "*.csv")
+print(paste0("csv_file = ", csv_file))
+lhs <- read_csv(file.path(res_path, csv_file))
 
-saveRDS(par_df, file.path( "results", "summary", results_date, "par.rds"))
+par_df <- lhs %>% mutate(Point=1:n())
 
 ## logs ------------------------------------------------------------------------
 files <- list.files(res_path, pattern = "log*")
 
-logs_df <- map_df(files, 
-                  function(f,i, res_path) {
-                    print(i)
-                    quietly(load_file)(f,res_path)$result
-                  }
-                  res_path=res_path)
+logs_df <- imap_dfr(files, 
+                    function(f,i, res_path) {
+                      print(i)
+                      quietly(load_file)(f,res_path)$result
+                    },
+                    res_path=res_path)
 
 logs_df %<>% group_by(Point, Repetition) %>% mutate(Step=1:n())
-logs_df %<>% rename(mean_cap = `# mean_cap`)
+#logs_df %<>% rename(mean_cap = `# mean_cap`)
+logs_df %<>% mutate(Point=as.numeric(Point)) %>% left_join(par_df)
 
-logs_df %<>% left_join(par_df)
-
+dir.create(file.path("results", "summary",results_date))
 saveRDS(logs_df, file.path("results", "summary",results_date, "log.rds"))
 
 
@@ -63,10 +63,10 @@ city_df <- imap_dfr(files,
                   }, 
                   res_path=res_path)
 
-city_df %<>% filter(type=="EXIT") %>% rename(id=`# id`) %>%
+city_df %<>% filter(type=="EXIT")%>%
   select(-x, -qual,-N)
 
-city_df %<>% left_join(par_df)
+city_df %<>% mutate(Point=as.numeric(Point)) %>% left_join(par_df)
 
 saveRDS(city_df, file.path("results", "summary",results_date, "exits.rds"))
 
@@ -82,8 +82,5 @@ link_df <- imap_dfr(files,
                     quietly(load_file)(f, res_path)$result
                   }, 
                   res_path=res_path)
-
-link_df %<>% rename(id=`# id`) # fast or slow?
-
 
 saveRDS(link_df, file.path("results", "summary",results_date, "links.rds"))
