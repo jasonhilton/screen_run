@@ -60,11 +60,11 @@ mod1 <- km(response=yy, design=D, noise.var=yy_var,
 library(sensitivity)
 
 d <- mod1@d
-n <- 5000
+n <- 2000
 X1 <- data.frame(matrix(runif(d * n), nrow = n))
 X2 <- data.frame(matrix(runif(d * n), nrow = n))
-nsim <- 500
-nboot <- 500
+nsim <- 250
+nboot <- 250
 
 SA <- sobolGP(mod1,
               type="UK",
@@ -76,7 +76,7 @@ SA <- sobolGP(mod1,
               nboot = nboot,
               sequential = FALSE,
               sequential.tot=FALSE,
-              max_iter = 5000
+              max_iter = 1000
 )
 
 SA_df <- tibble(Variables=colnames(mod1@X),
@@ -116,7 +116,7 @@ SA <- sobolGP(mod2,
               max_iter = 5000
 )
 
-SA_df <- tibble(Variables=colnames(mod1@X),
+SA_df <- tibble(Variables=colnames(mod2@X),
                 Main_effect=t(SA$S$mean),
                 Total_effect=t(SA$T$mean)) 
 
