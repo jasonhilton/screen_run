@@ -5,7 +5,7 @@ This repo has supporting R code for the analysis of the Routes and Rumours simul
 This involves identifying the set of parameters that influence particular outputs.
 
 The `send_jobs.sh` script generates experimental designs and trigger batch jobs via the pbs script `run_model.pbs`
-The `send_jobs.sh` script takes a single command line argument that indicates which model version is to be used (M3 or M4).
+The `send_jobs.sh` script takes a single command line argument that indicates which model version is to be used (m3 or m4).
 
 The simulation results will be saved in a time-stamped folder in the results directory.
 
