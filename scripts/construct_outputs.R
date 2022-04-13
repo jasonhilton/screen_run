@@ -39,8 +39,7 @@ logs <- readRDS(file.path(res_path, "log.rds")) %>% ungroup()
 
 logs %<>% filter(Step==max(Step))
 
-#var_pars <- read_yaml("config/varied_pars.yaml")
-var_pars <- read_csv(file.path("results", results_date, 
+var_pars <- read_csv(file.path("designs", "lhs",
                                paste0("lhs_", results_date, ".csv")))
 
 
@@ -102,12 +101,15 @@ exit_ent %<>% left_join(exit_var_df)
 # The log will therefore necessarily be negative.
 
 get_log_det <- function(D){
-  X <- D %>% spread(Repetition, count) %>% 
+  X <- D %>%  
+    spread(Repetition, count) %>% 
     select(-id) %>% as.matrix()
   return(determinant(cor(X))$modulus)
 }
 
-det_df <- exit_df %>% ungroup()%>% select(id,Point,Repetition, count) %>% 
+det_df <- exit_df %>% ungroup() %>% 
+  filter(time==max(time)) %>%
+  select(id,Point,Repetition, count) %>% 
   nest(data = c(id, Repetition, count)) %>%
   mutate(log_det_exit_cor = map_dbl(data, get_log_det))
 

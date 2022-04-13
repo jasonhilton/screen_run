@@ -27,10 +27,8 @@ res_path <- file.path("results", results_date)
 
 # only need one per point (although: seeds?)
 
-
-csv_file <- list.files(res_path, pattern = "*.csv")
-print(paste0("csv_file = ", csv_file))
-lhs <- read_csv(file.path(res_path, csv_file))
+lhs <- read_csv(file.path("designs", "lhs",
+                          paste0("lhs_", results_date, ".csv")))
 
 par_df <- lhs %>% mutate(Point=1:n())
 
@@ -48,7 +46,7 @@ logs_df %<>% group_by(Point, Repetition) %>% mutate(Step=1:n())
 #logs_df %<>% rename(mean_cap = `# mean_cap`)
 logs_df %<>% mutate(Point=as.numeric(Point)) %>% left_join(par_df)
 
-dir.create(file.path("results", "summary",results_date))
+dir.create(file.path("results", "summary",results_date), recursive = T)
 saveRDS(logs_df, file.path("results", "summary",results_date, "log.rds"))
 
 
