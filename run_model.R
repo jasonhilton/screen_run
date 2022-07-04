@@ -86,19 +86,3 @@ for (rep_no in 1:n_reps){
   
   system(run_cmd)
 }
-
-
-if (file.exists("backup_copy.sh")){
-  command <- paste0("backup_copy.sh ", out_dir)
-  system(command)
-}
-
-
-if (file.exists("backup_copy_file.sh")){
-  command <- paste0("backup_copy_file.sh ",
-                    design_file,
-                    " ",
-                    out_dir)
-  system(command)
-}
-

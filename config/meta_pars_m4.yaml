@@ -8,8 +8,6 @@ n-cities: 		 300
 link-thresh: 	 0.1
 #number of departures per time step#
 rate-dep: 	 20
-#time for departures to reach full rate#
-dep-warmup: 	 1.0
 #number of exits#
 n-exits: 		 10
 #number of starting positions#
